@@ -1,0 +1,128 @@
+# TRTC Knowledge Base Index
+# 全量索引 — 所有 slice 和 scenario 的集中目录
+# Skills 通过读取此文件发现和定位知识库内容
+
+version: "1.0"
+last_updated: "2026-03-16"
+
+# ============================================================
+# Products — TRTC 产品线
+# ============================================================
+products:
+  - id: chat
+    name: Chat（即时通信）
+    description: 即时通信 SDK，提供消息收发、会话管理、群组、用户资料等能力
+    platforms: [web, android, ios, flutter, electron]
+
+  - id: call
+    name: Call（音视频通话）
+    description: 音视频通话组件，支持 1v1 和群组音视频通话
+    platforms: [web, android, ios, flutter]
+
+  - id: rtc-engine
+    name: RTC Engine（实时音视频引擎）
+    description: 底层实时音视频引擎，提供进房、推流、拉流、混流等核心能力
+    platforms: [web, android, ios, flutter, electron]
+
+  - id: live
+    name: Live（直播）
+    description: 直播组件，支持推流、拉流、连麦互动
+    platforms: [web, android, ios, flutter]
+
+  - id: room
+    name: Room（房间管理）
+    description: 房间管理组件，提供房间创建、销毁、成员管理等能力
+    platforms: [web, android, ios, flutter]
+
+# ============================================================
+# Slices — 原子能力片段索引
+# ============================================================
+slices:
+  # ---- Chat 产品 ----
+  - id: chat/multi-instance
+    name: 多实例/多端并发
+    product: chat
+    tags: [multi-instance, login, session, kick-offline, multi-device]
+    platforms: [web, android, ios]
+    file: slices/chat/multi-instance.md
+    platform_files:
+      web: slices/chat/web/multi-instance.md
+    related:
+      - chat/login
+      - chat/event-listener
+    description: >
+      多端登录策略配置、同平台实例数上限、互踢机制、
+      onKickedOffline 回调处理、getLoginStatus 状态检查
+
+  - id: chat/login
+    name: 登录与认证
+    product: chat
+    tags: [login, auth, userSig, initialization]
+    platforms: [web, android, ios, flutter]
+    file: slices/chat/login.md
+    description: >
+      SDK 初始化、UserSig 生成与校验、登录/登出流程、
+      登录状态管理、UserSig 过期处理
+    status: planned
+
+  - id: chat/event-listener
+    name: 事件监听
+    product: chat
+    tags: [event, listener, callback, observer]
+    platforms: [web, android, ios, flutter]
+    file: slices/chat/event-listener.md
+    description: >
+      SDK 事件监听机制、addIMSDKListener、回调注册与注销、
+      常见事件类型（连接状态、消息接收、被踢下线等）
+    status: planned
+
+  # ---- RTC Engine 产品 ----
+  - id: rtc-engine/enter-room
+    name: 进房
+    product: rtc-engine
+    tags: [enter-room, join, room, connection]
+    platforms: [web, android, ios, flutter, electron]
+    file: slices/rtc-engine/enter-room.md
+    description: >
+      进房参数配置（TRTCParams）、进房场景选择（视频通话/直播）、
+      进房回调处理、进房失败排障
+    status: planned
+
+  - id: rtc-engine/publish-stream
+    name: 推流
+    product: rtc-engine
+    tags: [publish, stream, video, audio, camera, microphone]
+    platforms: [web, android, ios, flutter, electron]
+    file: slices/rtc-engine/publish-stream.md
+    description: >
+      本地音视频采集与推流、摄像头/麦克风管理、
+      视频编码参数、推流状态回调
+    status: planned
+
+# ============================================================
+# Scenarios — 场景组合索引
+# ============================================================
+scenarios:
+  - id: chat-multi-device
+    name: 多设备/多端并发登录
+    product: chat
+    file: scenarios/chat-multi-device.md
+    slices:
+      - chat/multi-instance
+      - chat/login
+      - chat/event-listener
+    description: >
+      同一用户在多个设备或多个浏览器 Tab 中同时使用 Chat 的完整方案，
+      包括登录策略配置、互踢处理、状态同步
+
+  - id: 1v1-video-call
+    name: 1v1 视频通话
+    product: rtc-engine
+    file: scenarios/1v1-video-call.md
+    slices:
+      - rtc-engine/enter-room
+      - rtc-engine/publish-stream
+    description: >
+      两个用户进行 1v1 视频通话的完整流程，
+      包括进房、推流、拉流、挂断
+    status: planned
