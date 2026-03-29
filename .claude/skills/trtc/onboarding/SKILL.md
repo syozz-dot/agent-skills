@@ -31,50 +31,63 @@ If you can't scan files (tool limitation), you'll ask in Step 2.
 
 ## Step 2: Triage — Two Questions
 
-Ask these one at a time. Each question offers predefined options AND free text input.
+Ask these one at a time.
+
+**Interaction method:** If your runtime supports structured selection UI (e.g., Claude Code's `AskUserQuestion` tool where users navigate with arrow keys), USE IT — this gives the best UX. If not available, fall back to a numbered list. Always include a free-text "Other" option as the last choice.
 
 **Smart skip:** If the user's first message already contains product and/or intent information (e.g., "I want to try TRTC live streaming" contains both product=Live and intent=demo), skip the corresponding question. Don't ask what the user already told you.
 
 ### Q1: Product
 
-> **What are you building?**
->
-> - Live streaming
-> - Video / voice call
-> - Chat / messaging
-> - Multi-person room
-> - _Or describe your use case_
+Question: "What are you building?"
 
-If the user types free text (e.g., "I want users to watch a host perform"), map it to the closest product. If ambiguous, confirm: "That sounds like **Live streaming** — is that right?"
+Options (in order):
+1. Live streaming
+2. Video / voice call
+3. Chat / messaging
+4. Multi-person room
+
+Last option (free text): "Something else — describe your use case"
+
+If the user selects a numbered option, map directly. If they type free text, map to the closest product. If ambiguous, confirm: "That sounds like Live streaming — is that right?"
 
 ### Q2: Stage
 
-> **Where are you at?**
->
-> - I want to try a demo first
-> - I want to build a specific feature
-> - I'm stuck on an issue
-> - I want to add a feature to my existing integration
-> - _Or describe your situation_
+Question: "Where are you at?"
+
+Options (in order):
+1. I want to try a demo first
+2. I want to build a specific feature
+3. I'm stuck on an issue
+4. I want to add a feature to my existing integration
+
+Last option (free text): "Something else — describe your situation"
 
 Route based on answer:
 
 | Answer | Path |
 |--------|------|
-| Try a demo | **Path A1: Demo Quickstart** |
-| Build a specific feature | **Path A2: Direct Integration** |
-| Stuck on an issue | **Path B: Troubleshooting** |
-| Add a feature to existing | **Path C: Feature Expansion** |
+| 1 — Try a demo | **Path A1: Demo Quickstart** |
+| 2 — Build a specific feature | **Path A2: Direct Integration** |
+| 3 — Stuck on an issue | **Path B: Troubleshooting** |
+| 4 — Add a feature to existing | **Path C: Feature Expansion** |
+| Free text | Map to closest path, confirm if ambiguous |
 
 If the user's free text doesn't clearly match, ask a follow-up to clarify.
 
-If platform was not auto-detected in Step 1, ask now:
-> **What platform are you developing for?**
-> - iOS
-> - Android
-> - Web
-> - Flutter
-> - _Other_
+### Platform (if not auto-detected)
+
+If platform was not auto-detected in Step 1, ask:
+
+Question: "What platform are you developing for?"
+
+Options (in order):
+1. iOS
+2. Android
+3. Web
+4. Flutter
+
+Last option (free text): "Other — describe your platform"
 
 ---
 
