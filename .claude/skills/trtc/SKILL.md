@@ -107,6 +107,6 @@ For more complex interactions, these sub-skills provide specialized workflows. Y
 | Sub-skill | When to use | Path |
 |-----------|------------|------|
 | **onboarding** | User is new, wants to get started, run a demo, or start a fresh integration | `onboarding/SKILL.md` |
-| **search** | User needs to find specific capabilities or compare options | `search/SKILL.md` |
+| **search** | User needs to find a specific slice (atomic capability) or scenario (integration workflow) | `search/SKILL.md` |
 | **apply** | User has code to validate against best practices | `apply/SKILL.md` |
 | **topic** | User wants step-by-step guidance through a complete scenario | `topic/SKILL.md` |

@@ -10,7 +10,7 @@ ai-integration/
 ├── .claude/skills/trtc/               # Claude Code Skills
 │   ├── SKILL.md                       # 路由 skill（入口）
 │   ├── onboarding/SKILL.md            # 新手引导（分流 → demo/集成/排障/扩展）
-│   ├── search/SKILL.md                # 搜索知识库
+│   ├── search/SKILL.md                # 搜索 slice（原子能力）和 scenario（集成场景）
 │   ├── apply/SKILL.md                 # 应用/校验代码
 │   └── topic/SKILL.md                 # 场景引导
 ├── knowledge-base/
