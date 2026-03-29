@@ -84,7 +84,7 @@ If platform was not auto-detected in Step 1, ask now:
 
 **CRITICAL: Do NOT write custom code in the user's project.** Path A1 is about running the official pre-built demo app, not building anything from scratch. Even if the user's project already has TRTC dependencies, clone the official demo repo into a separate directory.
 
-**Demo documentation:** https://trtc.io/document/60455.md — fetch this page for the latest platform-specific instructions before proceeding.
+**Finding demo info:** Read the llms file for the user's product + platform at `llms/{product}-{platform}.txt` (e.g., `llms/live-ios.txt`). This file contains the demo repo URL, setup instructions, and prerequisites. If the llms file doesn't exist yet for this product/platform, fall back to the product-level file `llms/{product}.txt`, or as a last resort fetch the demo doc from trtc.io.
 
 ### A1.1 — Credentials
 
@@ -102,9 +102,9 @@ Wait for credentials before proceeding.
 
 ### A1.2 — Clone Official Demo
 
-Clone the official demo repo into a **separate directory** (not inside the user's project):
+Clone the official demo repo into a **separate directory** (not inside the user's project). Get the repo URL and setup steps from the llms file loaded above.
 
-**iOS (Live):**
+**Example for iOS (Live):**
 ```bash
 cd /tmp  # or any directory outside the user's project
 git clone https://github.com/Tencent-RTC/TUIKit_iOS.git
@@ -112,7 +112,7 @@ cd TUIKit_iOS/application
 pod install --repo-update
 ```
 
-**Important:** Always fetch https://trtc.io/document/60455.md first to get the latest repo URLs and setup instructions per platform. The above is an example — the doc is the source of truth.
+**Important:** The llms file for the specific product+platform is the source of truth for repo URLs and setup steps. The example above may be outdated.
 
 ### A1.3 — Configure
 
