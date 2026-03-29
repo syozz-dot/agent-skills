@@ -29,7 +29,8 @@ Always respond in the same language as the user's message. If uncertain, default
 - User explicitly says "get started", "I'm new", "help me integrate", "how to use this", "first time"
 - User describes a from-scratch integration need ("I want to build a live streaming app")
 - User wants to run a demo ("try the demo", "see it working")
-- Project has no TRTC-related dependencies (no AtomicXCore pod, no @tencentcloud packages)
+
+**Priority rule:** If the user describes a specific technical problem (error code, symptom, code snippet), do NOT route to onboarding even if the project has no TRTC dependencies. A user asking "my createLive returns -2105" is troubleshooting, not onboarding — route to search/apply instead. Only use "no TRTC dependencies detected" as an onboarding signal when combined with a vague or introductory message.
 
 If onboarding is detected, follow `onboarding/SKILL.md` — do NOT proceed with the normal routing below.
 

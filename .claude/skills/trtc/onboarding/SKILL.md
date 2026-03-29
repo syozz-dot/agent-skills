@@ -33,6 +33,8 @@ If you can't scan files (tool limitation), you'll ask in Step 2.
 
 Ask these one at a time. Each question offers predefined options AND free text input.
 
+**Smart skip:** If the user's first message already contains product and/or intent information (e.g., "I want to try TRTC live streaming" contains both product=Live and intent=demo), skip the corresponding question. Don't ask what the user already told you.
+
 ### Q1: Product
 
 > **What are you building?**
@@ -148,7 +150,7 @@ Skip this step if credentials were already provided in Path A1.
 
 ### A2.2 — Scan & Plan
 
-Read `knowledge-base/index.yaml` to find matching slices/scenarios for the user's intent.
+Read `knowledge-base/index.yaml` (relative to this project root) to find matching slices/scenarios for the user's intent. All slice files are under `knowledge-base/slices/` and scenario files under `knowledge-base/scenarios/`.
 
 If the tool supports file scanning, check the project:
 - Has TRTC dependency? (AtomicXCore pod / @tencentcloud/chat npm / etc.)
