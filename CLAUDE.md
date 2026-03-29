@@ -14,9 +14,8 @@ ai-integration/
 │   ├── apply/SKILL.md                 # 应用/校验代码
 │   └── topic/SKILL.md                 # 场景引导
 ├── knowledge-base/
-│   ├── index.yaml                     # 全量索引（v2.0 — 含 source/priority/domain 字段）
+│   ├── index.yaml                     # 全量索引（v3.0 — 含 source/priority/domain 字段）
 │   ├── slice-spec.md                  # Slice 定义规范（拆分标准、编写规范、规划方法论）
-│   ├── feedback-collection-template.md # 信息收集表格模板（产品/销售填写）
 │   ├── slices/                        # 原子能力片段
 │   │   ├── {product}/                 # 按产品分类 (chat/call/rtc-engine/live/room)
 │   │   │   ├── {ability}.md           # 产品级概览（跨平台通用）

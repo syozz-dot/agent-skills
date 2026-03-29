@@ -144,27 +144,39 @@ Use this mapping to expand search queries bidirectionally:
 | 中文 | English Keywords |
 |------|-----------------|
 | 互踢 | kick-offline, multi-instance |
-| 弹幕 | barrage, avchatroom |
-| 美颜 | beauty, effect |
-| 连麦 | co-host, co-streaming |
-| 推流 | publish, stream |
-| 拉流 | subscribe, pull-stream |
-| 进房 | enter-room, join |
+| 弹幕 | barrage, avchatroom, danmu |
+| 美颜 | beauty, smooth, whiten, ruddy, BaseBeautyStore |
+| 连麦 | co-guest, co-streaming, seat, CoGuestStore |
+| 推流 | publish, stream, pushView, anchor |
+| 拉流 | subscribe, pull-stream, playView, audience |
+| 进房 | enter-room, join, joinLive |
 | 消息 | message, msg |
 | 群组 | group |
 | 会话 | conversation |
-| 登录 | login, auth |
+| 登录 | login, auth, LoginStore, SDKAppID, UserSig |
 | 初始化 | init, setup, create |
 | 离线推送 | offline-push, apns, fcm |
 | 撤回 | recall, revoke |
 | 已读 | read-receipt |
 | 通话 | call, voice, video |
-| 直播 | live, streaming, broadcast |
-| 礼物 | gift |
-| 音效 | sound-effect, audio-effect |
-| 房间 | room |
+| 直播 | live, streaming, broadcast, LiveCoreView |
+| 礼物 | gift, GiftStore, reward |
+| 音效 | audio-effect, changer, reverb, ear-monitor, AudioEffectStore |
+| 房间 | room, LiveListStore, createLive |
 | 好友 | friend |
 | 信令 | signaling |
+| 开播 | start-live, anchor, preview, createLive |
+| 结束直播 | end-live, endLive, lifecycle |
+| 观众 | audience, viewer, LiveAudienceStore |
+| 踢人 | kick, kickUserOutOfRoom |
+| 禁言 | mute, disableSendMessage |
+| 管理员 | admin, administrator, setAdministrator |
+| 摄像头 | camera, DeviceStore, openLocalCamera |
+| 麦克风 | microphone, DeviceStore, openLocalMicrophone |
+| 黑屏 | black-screen, setLiveID |
+| 错误码 | error-code, ErrorInfo |
+| 跨房连线 | co-host, connection, CoHostStore |
+| PK | battle, BattleStore, pk |
 
 ## Edge Cases
 
