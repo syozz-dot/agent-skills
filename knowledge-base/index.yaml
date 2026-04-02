@@ -9,7 +9,6 @@ last_updated: "2026-03-30"
 # Products — TRTC 产品线
 # ============================================================
 # 仅保留 search skill 做产品识别和 fallback 所需的最小信息
-# 详细文档链接已迁移至 llms/{product}.txt 和 llms/{product}-{platform}.txt
 products:
   - id: chat
     name: Chat（即时通信）

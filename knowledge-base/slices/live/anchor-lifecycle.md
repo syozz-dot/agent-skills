@@ -25,9 +25,7 @@ docs:
 
 ### createLive
 
-```
-LiveListStore.createLive(liveInfo:completion:)
-```
+调用 `LiveListStore` 的 `createLive` 方法，传入直播信息对象，通过成功/失败回调获取结果。
 
 | 行为 | 说明 |
 |------|------|
@@ -39,9 +37,7 @@ LiveListStore.createLive(liveInfo:completion:)
 
 ### endLive
 
-```
-LiveListStore.endLive(liveID:completion:)
-```
+调用 `LiveListStore` 的 `endLive` 方法，传入直播间 ID，通过成功/失败回调获取结果。
 
 | 行为 | 说明 |
 |------|------|
@@ -51,7 +47,7 @@ LiveListStore.endLive(liveID:completion:)
 
 ### 被动结束事件（liveListEventPublisher）
 
-通过订阅 `LiveListStore.liveListEventPublisher` 监听以下事件：
+通过订阅 `LiveListStore` 的直播列表事件监听以下事件：
 
 | 事件 | 触发场景 | 处理建议 |
 |------|----------|----------|
@@ -66,8 +62,8 @@ LiveListStore.endLive(liveID:completion:)
 1. 结束 PK（如有）         → endPK()
 2. 断开连线（如有）        → disconnectLink()
 3. 断开连麦（如有）        → stopCoguest()
-4. 关闭摄像头/麦克风       → DeviceStore.closeLocalCamera() / closeLocalMicrophone()
-5. 结束直播               → LiveListStore.endLive(liveID:)
+4. 关闭摄像头/麦克风       → 通过 DeviceStore 关闭本地摄像头和麦克风
+5. 结束直播               → 通过 LiveListStore 调用 endLive，传入 liveID
 6. 销毁 LiveCoreView       → 仅在 endLive 回调成功后
 ```
 
@@ -85,7 +81,7 @@ LiveListStore.endLive(liveID:completion:)
 1. **`endLive` 回调前释放 `LiveCoreView`** — 视图持有底层推流资源；过早释放会导致 crash 或资源泄漏。
 2. **忽略 `onKickedOutOfLive` 事件** — 未处理此事件时，被踢出的主播仍停留在「直播中」界面，用户体验极差，且推流资源无法释放。
 3. **重复调用 `createLive`** — 同一 `liveID` 已存在直播间时再次调用会返回 `-2108`；用唯一 ID 或先调 `endLive` 销毁后再创建。
-4. **在子线程更新 UI** — `createLive` / `endLive` 的回调应在主线程处理 UI 变更；若不确定回调线程，用 `DispatchQueue.main.async` 包裹。
+4. **在子线程更新 UI** — `createLive` / `endLive` 的回调应在主线程处理 UI 变更；若不确定回调线程，确保切换到主线程再更新 UI。
 
 ## 排障指南
 
@@ -110,7 +106,7 @@ createLive 失败
 endLive 无响应 / 超时
 ├── 是否已有网络连接？→ 检查网络后重试
 ├── 是否在子线程调用了 UI 操作？→ 移至主线程
-└── LiveCoreView 是否被提前释放？→ 确保在回调后才 removeFromSuperview
+└── LiveCoreView 是否被提前释放？→ 确保在回调后才销毁视图
 
 主播被踢出后推流未停止
 └── 检查是否订阅了 onKickedOutOfLive

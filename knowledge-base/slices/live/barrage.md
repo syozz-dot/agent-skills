@@ -22,16 +22,16 @@ docs:
 
 | 方法 / 属性 | 说明 |
 |-------------|------|
-| `BarrageStore.create(liveID:)` | 创建或获取与指定直播间绑定的单例实例 |
-| `sendTextMessage(text:extensionInfo:completion:)` | 向房间内所有用户广播纯文本弹幕；`extensionInfo` 可附加扩展字段 |
-| `sendCustomMessage(businessID:data:completion:)` | 发送自定义业务消息；`data` 为 JSON 格式字符串，`businessID` 区分消息类型 |
-| `appendLocalTip(message:)` | 向本地消息列表插入仅本端可见的系统提示，不广播给其他用户 |
-| `disableSendMessage(userID:isDisable:completion:)` | 对指定用户单独禁言（`true`）或解除禁言（`false`）；状态在用户重新进房后仍生效 |
+| `BarrageStore.create(liveID)` | 创建或获取与指定直播间绑定的单例实例 |
+| `sendTextMessage(text, extensionInfo)` | 向房间内所有用户广播纯文本弹幕；`extensionInfo` 可附加扩展字段；通过成功/失败回调返回结果 |
+| `sendCustomMessage(businessID, data)` | 发送自定义业务消息；`data` 为 JSON 格式字符串，`businessID` 区分消息类型；通过成功/失败回调返回结果 |
+| `appendLocalTip(message)` | 向本地消息列表插入仅本端可见的系统提示，不广播给其他用户 |
+| `disableSendMessage(userID, isDisable)` | 对指定用户单独禁言（`true`）或解除禁言（`false`）；状态在用户重新进房后仍生效；通过成功/失败回调返回结果 |
 | `Barrage` | 单条弹幕数据模型；包含发送者信息、`textContent` / `data` 内容、`messageType` 分类 |
-| `BarrageState` | 弹幕模块状态容器；`messageList: [Barrage]` 是 UI 渲染的唯一数据源 |
+| `BarrageState` | 弹幕模块状态容器；`messageList` 是 UI 渲染的唯一数据源 |
 | `BarrageState.messageList` | 按时间排序的完整消息数组；SDK 每次更新时下发完整列表 |
 
-> **全员禁言**：通过 `LiveListStore.updateLiveInfo(..., modifyFlag: .isMessageDisable)` 控制，与 `disableSendMessage` 是不同接口，作用范围不同。
+> **全员禁言**：通过 `LiveListStore` 的 `updateLiveInfo` 方法（设置 `modifyFlag` 为 `isMessageDisable`）控制，与 `disableSendMessage` 是不同接口，作用范围不同。
 
 ## 最佳实践
 
@@ -39,15 +39,15 @@ docs:
 
 1. **批处理更新（300ms 节流）** — 高并发弹幕场景下 SDK 可能以 30+ 次/秒的频率下发更新。务必对 `messageList` 变化做 300ms 节流处理，将刷新频率降至 3~4 次/秒，避免主线程过载。
 2. **循环缓冲限制消息上限（500 条）** — 长时间直播中 `messageList` 会持续增长。在 UI 层维护一个固定大小（推荐 500 条）的循环缓冲区，超出后丢弃最旧消息，防止内存无限膨胀。
-3. **异步渲染（`drawsAsynchronously = true`）** — 弹幕 Cell 设置 `layer.drawsAsynchronously = true`，将绘制工作移至后台线程，主线程只做布局，显著降低掉帧率。
+3. **启用异步渲染优化** — 弹幕 Cell 开启异步渲染，将绘制工作移至后台线程，主线程只做布局，显著降低掉帧率。
 4. **`appendLocalTip` 用于系统通知** — 用户进入/离开直播间、礼物特效等本地通知使用 `appendLocalTip` 插入，无需走网络，也不污染其他用户视图。
 5. **`sendCustomMessage` 携带 businessID** — 自定义消息务必设置清晰的 `businessID`（如 `"gift_notify"`、`"like_action"`），接收端通过 `businessID` 过滤处理，避免业务逻辑混淆。
 
 ### ❌ NEVER
 
-1. **每条弹幕到达立即刷新 UI** — 不做节流直接调用 `tableView.reloadData()` 或 `collectionView.reloadData()`，高峰期会造成 UI 卡顿甚至 ANR。
+1. **每条弹幕到达立即刷新 UI** — 不做节流直接刷新列表，高峰期会造成 UI 卡顿甚至 ANR。
 2. **无限累积消息到内存** — 不对 `messageList` 做截断，长播场景下内存占用会线性增长直至被系统终止。
-3. **在非主线程直接操作 UI** — 订阅 `messageList` 变化后，确保所有 UI 操作回到主线程执行。
+3. **在非主线程直接操作 UI** — 订阅 `messageList` 变化后，确保所有 UI 操作切换到主线程执行。
 4. **用 `appendLocalTip` 替代网络消息** — `appendLocalTip` 只在本地生效，不要用它发送需要其他用户看到的消息。
 
 ## 排障指南
@@ -66,11 +66,11 @@ docs:
 ```
 弹幕不显示
 ├── messageList 有数据但 UI 不更新
-│   ├── 是否在主线程更新 UI？ → 确保在 DispatchQueue.main 执行
-│   └── 是否未订阅 BarrageState？ → 检查 Combine/状态订阅是否建立
+│   ├── 是否在主线程更新 UI？ → 确保 UI 操作在主线程执行
+│   └── 是否未订阅 BarrageState？ → 检查状态订阅是否建立
 ├── messageList 始终为空
-│   ├── BarrageStore.create(liveID:) 的 liveID 是否与进房 ID 一致？
-│   └── 登录态是否正常？ → 检查 LoginStore.shared.isLogin
+│   ├── BarrageStore.create(liveID) 的 liveID 是否与进房 ID 一致？
+│   └── 登录态是否正常？ → 检查 LoginStore 的 isLogin 状态
 └── 历史消息不显示
     └── BarrageStore 创建时机太晚 → 在进房前创建实例以接收历史消息
 

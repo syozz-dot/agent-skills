@@ -1,113 +1,307 @@
 ---
 name: trtc-apply
 description: >
-  Validate and review TRTC SDK integration code against best practices. Use this
-  skill when the user pastes TRTC-related code and asks for review, validation,
-  debugging help, or wants to check if their implementation follows recommended
-  patterns. Also trigger when the user says "check my code", "is this correct",
-  "review this implementation", or describes a bug they can't figure out and
-  includes code. Look for TRTC SDK imports (@tencentcloud/chat, V2TIMManager,
-  TRTCCloud, TUICallKit) or TRTC error codes as signals. This skill loads
-  the relevant knowledge base slices and systematically checks code against
-  the ALWAYS/NEVER best practice rules.
+  Verify and safely integrate TRTC SDK code into projects. Use this skill when:
+  (1) AI-generated code (from topic/onboarding skills) needs compilation and integration
+  verification before delivery, (2) user pastes TRTC-related code and asks for review,
+  validation, or debugging help, (3) user says "check my code", "is this correct",
+  "review this implementation", or describes a bug with code. Look for TRTC SDK
+  imports (@tencentcloud/chat, V2TIMManager, TRTCCloud, TUICallKit, AtomicXCore) or
+  TRTC error codes as signals. This skill loads knowledge base slices (including their
+  代码生成约束 sections) and systematically verifies code correctness, compilability,
+  and integration safety.
 ---
 
-# TRTC Code Validator
+# TRTC Code Verifier & Integration Guard
 
-You validate TRTC SDK integration code against the best practices documented in the knowledge base. The goal is to catch real issues that cause bugs in production — not to nitpick style.
+你负责验证 TRTC SDK 代码的正确性，并确保代码安全集成到已有项目中。你的核心原则：
 
-## Validation workflow
-
-### Step 1: Analyze the code
-
-Read the user's code and identify:
-- **Product**: Which TRTC product is this? (Chat / Call / RTC Engine / Live / Room)
-- **Platform**: Which platform? (Web / Android / iOS / Flutter)
-- **Capabilities used**: Which atomic capabilities does this code touch? (e.g., login, multi-instance, enter-room, publish-stream)
-
-Use these signals:
-- Import statements (`@tencentcloud/chat` → Chat/Web, `V2TIMManager` → Chat/Android or iOS)
-- Class names and method calls
-- Error codes referenced in comments or catch blocks
-
-### Step 2: Load the relevant slices
-
-Read `knowledge-base/index.yaml` to find slices matching the identified capabilities.
-
-For each relevant slice:
-1. Read the product-level overview (`knowledge-base/{slice.file}`) — focus on the **最佳实践** (Best Practices) section with its ALWAYS/NEVER rules, and the **排障指南** (Troubleshooting) section
-2. Read the platform-specific file (`knowledge-base/{slice.platform_files[platform]}`) — focus on code examples and platform-specific gotchas
-
-### Step 3: Check against best practices
-
-Go through each ALWAYS and NEVER rule from the loaded slices and check whether the user's code complies.
-
-**ALWAYS rules** — things the code MUST do. If missing, it's a problem:
-- Example: "Always register onKickedOffline before calling login" → Check if the code registers the callback before the login call
-
-**NEVER rules** — things the code must NOT do. If present, it's a problem:
-- Example: "Never auto-retry login in onKickedOffline" → Check if the kicked-offline handler triggers an automatic re-login
-
-Also check for:
-- **Error handling**: Are relevant error codes (from the slice's error code table) being handled?
-- **API usage**: Does the code match the patterns in the slice's code examples?
-- **Lifecycle**: Is initialization/cleanup done in the right order?
-
-### Step 4: Generate the validation report
-
-Structure your response as a clear, actionable report:
-
-```markdown
-## TRTC Code Review
-
-**Product**: Chat | **Platform**: Web | **Capabilities**: multi-instance, login
-
-### Issues Found
-
-#### ❌ Missing onKickedOffline handler before login
-The code calls `chat.login()` at line 15 but doesn't register a `KICKED_OFFLINE` event handler beforehand. If another device logs in with the same account, this instance will be silently disconnected with no user feedback.
-
-**Fix** — register the handler before login:
-​```typescript
-// Add this BEFORE the login call
-chat.on(TencentCloudChat.EVENT.KICKED_OFFLINE, () => {
-  // Prompt the user — do NOT auto-retry (causes kick loops)
-  showReloginDialog();
-});
-​```
-
-> 📖 Reference: chat/multi-instance — Best Practice #2: "Always register onKickedOffline callback"
-
-#### ⚠️ No UserSig expiration handling
-The catch block doesn't handle error codes 6206 or 70001. When the UserSig expires mid-session, the login will fail silently.
-
-**Fix** — add specific error code handling:
-​```typescript
-catch (error: any) {
-  if (error.code === 6206 || error.code === 70001) {
-    const newSig = await fetchNewUserSig();
-    await chat.login({ userID, userSig: newSig });
-    return;
-  }
-  throw error;
-}
-​```
-
-> 📖 Reference: chat/multi-instance — Best Practice #3: "Always handle UserSig expiration"
-
-### ✅ Looks Good
-
-- Login status check before login — properly guards against redundant login calls
-- SDK initialization order is correct
-
-### 📚 References
-- Slice: chat/multi-instance | [Official docs](https://trtc.io/zh/document/47971?product=chat)
+```
+没有编译证据，不声称代码正确。
+没有集成检查，不声称可以安全合并。
 ```
 
-### Report principles
+本 skill 有两种触发场景：
+- **自验证模式**：topic/onboarding skill 生成代码后，调用你来验证
+- **审查模式**：用户贴了自己的代码，请求检查
 
-- **Real issues only**: Every finding should map to a specific ALWAYS/NEVER rule or a documented error pattern. Don't invent rules — if the knowledge base doesn't flag it, don't flag it.
-- **Show the fix**: Every issue must include a concrete code change, not just a description of the problem.
-- **Acknowledge what's correct**: List things the code does right. This builds trust and helps the user understand which parts they can leave alone.
-- **Cite your sources**: Every finding should reference the slice ID and specific rule it relates to.
-- **Prioritize by impact**: Lead with issues that cause runtime failures or data loss, then warnings about edge cases, then style suggestions.
+两种模式使用同一条验证管线，区别仅在于代码来源。
+
+---
+
+## Phase 1: 分析与识别
+
+### 1.1 识别代码上下文
+
+读取用户的代码（或 AI 生成的代码），提取：
+
+- **Product**: Chat / Call / RTC Engine / Live / Room
+- **Platform**: Web / Android / iOS / Flutter / Electron
+- **Capabilities**: 触及了哪些原子能力（如 login, coguest-apply, publish-stream）
+
+识别信号：
+- Import 语句（`@tencentcloud/chat` → Chat/Web, `AtomicXCore` → Live/iOS）
+- 类名和方法调用（`CoGuestStore.create` → live/coguest-apply）
+- 错误码（`-2340` → live/coguest-apply 麦位超限）
+
+### 1.2 加载知识
+
+读取 `knowledge-base/index.yaml` 定位相关 slices。
+
+**对每个相关 slice，按顺序加载**：
+1. **产品级概览**（`slices/{product}/{ability}.md`）— 关注「最佳实践」的 ALWAYS/NEVER 规则
+2. **平台实现文件**（`slices/{product}/{platform}/{ability}.md`）— 关注「代码生成约束」section 的全部内容
+
+> 如果平台实现文件没有「代码生成约束」section，仍然检查「前置条件」「平台特有注意事项」作为替代约束源。
+
+---
+
+## Phase 2: 约束合规检查
+
+按照两层约束逐条检查代码：
+
+### 2.1 产品级规则（来自产品概览的最佳实践）
+
+| 检查类型 | 做什么 |
+|----------|--------|
+| **ALWAYS 规则** | 逐条检查代码是否满足。缺失的 = issue |
+| **NEVER 规则** | 逐条检查代码是否违反。存在的 = issue |
+
+### 2.2 平台级规则（来自平台文件的代码生成约束）
+
+| 检查类型 | 做什么 |
+|----------|--------|
+| **编译必要条件** | 验证 import 是否齐全、依赖是否声明 |
+| **MUST 规则** | 逐条检查。每条 MUST 未满足 = issue |
+| **MUST NOT 规则** | 逐条检查。每条 MUST NOT 被违反 = issue |
+
+### 2.3 跨 slice 检查
+
+**A. 前置状态验证**：
+读取每个 slice 平台文件的「前置条件 / 前置状态」，验证用户代码是否建立了这些前置条件。
+
+> 例：代码调用了 `CoGuestStore.create(liveID:)` 但没有先完成 login → 加载 login 相关 slice，标记为 issue 并提供修复。
+
+**B. 跨产品依赖**：
+检查 `index.yaml` 的 `cross_product_relations`。如果代码触及有跨产品依赖的能力（如弹幕依赖 Chat AVChatRoom），加载相关 slice 并检查其规则。
+
+**C. 平台生命周期验证**：
+
+| 平台 | 检查项 |
+|------|--------|
+| iOS | setup/subscribe 在 `viewDidLoad()` 或 `viewWillAppear()`；cleanup 在 `viewDidDisappear()`（不是 `deinit`）；Combine `sink` 必须 `[weak self]`；`cancellables` 必须是存储属性 |
+| Android | setup 在 `onCreate`/`onResume`；cleanup 在 `onPause`/`onDestroy`；lifecycle-aware 订阅管理 |
+| Web | 事件监听在组件卸载 / 页面 unload 时清理 |
+| Flutter | dispose() 中清理订阅；StatefulWidget 的 initState/dispose 对称性 |
+
+**D. 清理对称性**：
+对每一个 `create` / `subscribe` / `sink` 调用，验证是否有对应的清理操作，且清理在正确的生命周期方法中。
+
+---
+
+## Phase 3: 编译验证
+
+> 仅在交互模式（非 `--print`）且有项目环境时执行。
+
+### 3.1 基线快照
+
+在写入任何代码前，记录当前项目状态：
+
+```bash
+# 记录 git 状态
+git status --short
+git stash list
+
+# 记录当前编译状态
+{platform_build_command}  # 确认项目当前能编译
+```
+
+**铁律：如果项目当前都编不过，先告知用户，不要在坏的基线上继续。**
+
+### 3.2 写入并编译
+
+1. 将代码写入项目
+2. 执行平台编译命令：
+
+| 平台 | 编译命令 |
+|------|---------|
+| iOS | `xcodebuild build -workspace {X}.xcworkspace -scheme {X} -destination 'platform=iOS Simulator,name=iPhone 16' -quiet` |
+| Android | `./gradlew assembleDebug` |
+| Web | `npm run build` 或 `npx tsc --noEmit` |
+| Flutter | `flutter build` |
+
+3. 如果编译失败：
+   - 读取错误日志，定位问题
+   - 修复代码（不修改项目已有文件，除非问题在于集成点）
+   - 重试（最多 3 次）
+   - 3 次仍失败 → 展示剩余错误，标记 `⚠️ 编译未通过`
+
+4. 编译成功 → 记录 `✅ 编译通过`，**附带实际的编译命令输出作为证据**
+
+### 3.3 编译无法执行时
+
+如果没有项目环境（用户只是贴了代码片段），明确标注：
+
+```
+⚠️ 编译未验证 — 当前无项目环境。以下是静态检查结果，建议在实际项目中编译确认。
+```
+
+---
+
+## Phase 4: 集成安全检查
+
+> 当代码需要集成到已有项目时执行（不是从零创建项目的场景）。
+
+### 4.1 变更范围分析
+
+```bash
+# 查看变更了哪些文件
+git diff --name-only
+
+# 查看具体改动
+git diff
+```
+
+检查：
+- [ ] 是否只修改了预期的文件？
+- [ ] 是否有意外修改（如误触了不相关的配置文件）？
+- [ ] 新增的文件是否在合理的目录结构中？
+
+### 4.2 集成检查点（来自 slice）
+
+读取相关 slice 的「代码生成约束 → 集成检查点」section，逐条验证：
+
+- **SDK 初始化冲突**: 是否在 AppDelegate/main.dart/index.js 中重复初始化了 SDK？
+- **生命周期方法合并**: 是否需要将新代码合并到已有的 `viewDidLoad` / `onCreate` 中，而非新建？
+- **依赖冲突**: 新增的依赖是否与项目已有依赖的版本冲突？
+- **状态管理冲突**: 新代码的状态管理（Combine/RxSwift/StateFlow）是否与项目现有模式一致？
+
+### 4.3 回归安全
+
+```bash
+# 如果项目有测试，运行全量测试
+{platform_test_command}
+
+# 对比测试结果
+# 预期：新增代码不导致已有测试失败
+```
+
+| 平台 | 测试命令 |
+|------|---------|
+| iOS | `xcodebuild test -workspace ... -scheme ... -destination ... -quiet` |
+| Android | `./gradlew test` |
+| Web | `npm test` |
+| Flutter | `flutter test` |
+
+**如果已有测试失败了**：这是 blocker，必须修复后才能交付。分析失败原因：
+- 是新代码的副作用（如全局状态污染）→ 修复新代码
+- 是新代码暴露了已有 bug → 报告给用户，让用户决定
+
+### 4.4 可回滚性
+
+确认变更可以干净回滚：
+
+```bash
+# 验证 git stash / git checkout 能恢复原始状态
+git stash  # 暂存变更
+{platform_build_command}  # 确认恢复后仍能编译
+git stash pop  # 恢复变更
+```
+
+---
+
+## Phase 5: 验证报告
+
+将所有检查结果整合为结构化报告。**每个结论必须有证据支撑。**
+
+### 报告模板
+
+```markdown
+## TRTC 代码验证报告
+
+**Product**: Live | **Platform**: iOS | **Capabilities**: coguest-apply
+**模式**: 自验证 / 审查
+
+---
+
+### 约束合规 {✅ 通过 / ❌ 有问题}
+
+#### Issues
+
+##### ❌ [Critical] {问题标题}
+**违反规则**: {slice ID} — {具体规则}
+**影响**: {违反会导致什么}
+**当前代码**:
+​```swift
+// 问题代码
+​```
+**修复**:
+​```swift
+// 修复后的代码
+​```
+
+##### ⚠️ [Warning] {问题标题}
+...
+
+#### ✅ 合规项
+- [slice ID / MUST #1] {规则描述} — 已满足
+- [slice ID / ALWAYS #2] {规则描述} — 已满足
+
+---
+
+### 编译验证 {✅ 通过 / ❌ 失败 / ⚠️ 未验证}
+
+**命令**: `xcodebuild build ...`
+**结果**: exit code 0 | BUILD SUCCEEDED
+**证据**: [粘贴关键编译输出]
+
+---
+
+### 集成安全 {✅ 安全 / ⚠️ 需确认 / ❌ 有冲突}
+
+**变更范围**: 新增 2 文件，修改 0 文件
+- ✅ 无 SDK 初始化冲突
+- ✅ 无依赖版本冲突
+- ⚠️ 需确认：项目已有 DeviceStore 调用，建议检查是否冲突（见集成检查点 #3）
+
+**回归测试**: 12/12 通过 | N/A（项目无测试）
+
+---
+
+### 📚 References
+- Slice: live/coguest-apply | [官方文档](https://trtc.io/zh/document/74598)
+```
+
+### 报告原则
+
+| 原则 | 说明 |
+|------|------|
+| **有证据才有结论** | "编译通过"必须附编译输出。"测试通过"必须附测试结果。不说"应该没问题" |
+| **每个 issue 有修复代码** | 不只说"这里有问题"，给出可直接替换的修复代码 |
+| **引用约束来源** | 每个 issue 标明来自哪个 slice 的哪条规则，让用户可以追溯 |
+| **区分严重级别** | Critical = 运行时崩溃/逻辑错误/数据丢失，Warning = 边缘场景/体验问题，Info = 建议优化 |
+| **承认局限** | 无法编译就说"未验证"，不要推测"应该能编译" |
+
+---
+
+## 自验证模式（被其他 skill 调用时）
+
+当 topic skill 或 onboarding skill 生成代码后调用本 skill，流程精简为：
+
+1. **跳过 Phase 1.1**（代码上下文已由调用方确定）
+2. **执行 Phase 2**（约束合规 — 重点检查 MUST/MUST NOT）
+3. **执行 Phase 3**（编译验证 — 必须实际编译）
+4. **执行 Phase 4**（集成安全 — 如果是已有项目场景）
+5. **输出精简报告**（只输出 issues 和编译结果，合规项省略）
+
+### 自验证 5-point checklist（快速检查）
+
+对于简单代码片段，可用此 checklist 替代完整管线：
+
+1. **Imports**: import 语句是否与 slice 平台文件中的完全一致？（不凭记忆写 SDK 名）
+2. **Types**: 参数类型是否与 slice 的 API 签名逐字符一致？
+3. **Platform APIs**: 引用的每个平台 API 是否真实存在？（不发明便利方法/扩展）
+4. **MUST/MUST NOT**: 是否满足所有 MUST 规则、避免所有 MUST NOT？
+5. **Compilable**: 代码能否在安装了正确 SDK 的项目中独立编译？所有 import、类型声明、协议遵循是否完整？
+
+任何一项不通过 → 修复后重检，不交付有问题的代码。

@@ -110,6 +110,8 @@ knowledge-base/slices/{product}/{ability}.md          # 产品级概览（跨平
 knowledge-base/slices/{product}/{platform}/{ability}.md  # 平台实现细节
 ```
 
+> **平台实现文件模板**：新建平台 slice 时，请复制 [`platform-slice-template.md`](platform-slice-template.md) 并按批注填写。填写范例见 `slices/live/ios/coguest-apply.md`。
+
 ### Frontmatter 字段
 
 ```yaml
@@ -130,6 +132,24 @@ docs:                       # 参考的官方文档
 
 ### 内容结构
 
+#### 产品级概览（`{product}/{ability}.md`）
+
+产品级概览是**跨平台通用**的，描述的是"做什么"和"为什么"，不涉及"怎么做"。
+
+**平台无关性规则**：
+
+| ✅ 可以出现 | ❌ 不可以出现 |
+|-------------|-------------|
+| 操作语义（"观众发起连麦申请"） | 具体 API 签名（`applyForSeat(seatIndex:timeout:)` 这种 Swift 命名参数风格） |
+| 通用概念名（"连麦管理器"、"事件流"） | 平台特有类名/机制（`PassthroughSubject`、`ViewController`、`cancellable`） |
+| 行为级最佳实践（"通过前不要开设备"） | 代码结构级约束（"`[weak self]` 避免循环引用"） |
+| 通用排障逻辑（"检查主播端是否订阅了事件"） | 平台特有排障（"检查 cancellable 是否被提前释放"） |
+| 跨平台统一的错误码 | 仅某平台出现的错误码或异常行为 |
+
+**核心概念表的写法**：用操作名 + 语义描述，不写某个平台的方法签名。如果各平台 API 完全一致（同名同参数），可以写通用签名；如果有差异，只写操作语义，具体签名放到平台文件。
+
+**自查方法**：把文件中所有 API 名、类名、术语逐一检查 — 如果一个 Android 开发者读到它会觉得困惑或不适用，那就是平台特有内容，应该下沉到平台文件。
+
 ```markdown
 # {名称}（产品级概览）
 
@@ -137,63 +157,71 @@ docs:                       # 参考的官方文档
 [功能描述、典型场景、版本要求]
 
 ## 核心概念
-[核心概念解释，使用表格和代码块辅助说明]
+[操作语义 + 状态机 + 角色关系，不含平台特有 API 签名]
 
 ## 最佳实践
 ### ✅ ALWAYS（必须做的）
+[行为级规则：描述"该做什么"，不指定"用哪个 API 做"]
 ### ❌ NEVER（绝不要做的）
+[行为级规则：描述"不该做什么"，不指定平台实现细节]
 
 ## 排障指南
 ### 常见错误码
-[错误码表格]
+[跨平台统一的错误码表格]
 ### 排障流程
-[树状排查流程]
+[通用排障逻辑树，平台特有分支标注 → 见平台文件]
 
 ## 关联知识
 [引用相关 slice]
 ```
 
+#### 平台实现文件（`{product}/{platform}/{ability}.md`）
+
+平台实现文件在原有结构（前置条件、API 调用、代码示例、调用时序、平台特有注意事项）之外，**必须包含以下「代码生成约束」section**：
+
+```markdown
+## 代码生成约束
+
+本 section 供 AI 在生成/验证代码时使用，定义了此 slice 在该平台上的硬性约束。
+所有约束必须基于实际 SDK 行为，不允许凭经验推测。
+
+### 编译必要条件
+[此 slice 代码能编译的最小依赖和配置]
+- 必须导入的模块/包（精确到包名和版本）
+- 最低 SDK 版本要求
+- 必须的权限声明或配置文件变更
+- 必须的平台最低版本（如 iOS 15.0+, minSdk 24）
+
+### 生成规则
+
+#### MUST（生成时必须包含）
+[每条规则对应一个可验证的检查项。格式：编号 + 规则 + 为什么]
+
+#### MUST NOT（生成时绝不能出现）
+[同上格式。每条规则说明违反时的具体后果]
+
+### 集成检查点
+[将此代码集成到已有项目时需要额外确认的事项]
+- 是否与项目中已有的 SDK 初始化冲突
+- 是否需要合并到已有的生命周期方法中（而非新建）
+- 是否依赖其他 slice 的前置状态（引用具体 slice ID）
+- 对已有代码的侵入性说明（新增文件 vs 修改已有文件）
+
+### 可运行验证
+[验证生成的代码可正常运行的最小步骤]
+- 编译命令（如 `xcodebuild build ...`）
+- 预期编译结果
+- 最小运行时验证方式（如：调用入口函数，预期控制台输出 xxx）
+```
+
+**编写原则**：
+
+| 原则 | 说明 |
+|------|------|
+| **可机器检查** | 每条规则都能通过编译器、lint 或代码搜索来验证，不写主观建议 |
+| **有因果链** | 每条 MUST/MUST NOT 说明"违反了会怎样"，让 AI 理解优先级 |
+| **与最佳实践互补不重复** | 产品级概览的 ALWAYS/NEVER 侧重运行时行为（如"超时前不要开设备"）；这里的 MUST/MUST NOT 侧重代码结构（如"必须用 `[weak self]` 避免循环引用"） |
+| **集成感知** | 集成检查点假设目标是已有项目，不是从零开始的 demo |
+
 ---
 
-## 五、能力域划分（Chat 产品）
-
-| 能力域 ID | 名称 | 主线 Slice | 反馈 Slice |
-|-----------|------|-----------|-----------|
-| foundation | 初始化与认证 | init, login, multi-instance, event-listener | network-status |
-| message | 消息 | msg-send, msg-receive, msg-history, msg-offline-push | msg-recall, msg-read-receipt, msg-forward, msg-reaction, msg-custom |
-| conversation | 会话 | conv-list, conv-unread | conv-pin, conv-draft, conv-delete, conv-mark |
-| group | 群组 | group-create, group-join, group-manage, group-msg | group-avchatroom, group-attribute, group-counter |
-| user-relation | 用户与关系链 | user-profile | user-status, friend-manage, friend-group |
-| signaling | 信令 | — | signaling |
-| advanced | 进阶能力 | — | translation, moderation, community |
-
-### 汇总
-
-| 类型 | 数量 | 占比 |
-|------|------|------|
-| 🅰️ 主线 Slice | 15 个 | 43% |
-| 🅱️ 反馈 Slice | 20 个 | 57% |
-| **合计** | **35 个** | 100% |
-
----
-
-## 六、实施顺序
-
-### Phase 1：主线骨架（15 个 slice）
-
-```
-init → login → event-listener → multi-instance
-  → msg-send → msg-receive → msg-history → msg-offline-push
-  → conv-list → conv-unread
-  → group-create → group-join → group-manage → group-msg
-  → user-profile
-```
-
-### Phase 2：反馈血肉
-
-根据信息收集表格的频次排序，逐步补充反馈 slice。
-优先级排序：(两者都是 > 出错 > 使用) × (高 > 中 > 低)
-
-### Phase 3：场景组合
-
-每积累 3-5 个相关 slice 后，编写一个 scenario（场景引导）。

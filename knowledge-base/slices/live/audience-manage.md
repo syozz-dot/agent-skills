@@ -20,9 +20,9 @@ docs:
 
 | 方法 / 属性 | 说明 |
 |-------------|------|
-| `kickUserOutOfRoom(userID:completion:)` | 将指定用户踢出直播间；被踢用户收到 `onKickedOutOfLive` 回调；需管理员或房主权限 |
-| `setAdministrator(userID:completion:)` | 将指定观众设置为管理员；仅房主可调用 |
-| `revokeAdministrator(userID:completion:)` | 撤销指定用户的管理员权限；仅房主可调用 |
+| `kickUserOutOfRoom` | 将指定用户踢出直播间，传入目标 userID，通过成功/失败回调获取结果；被踢用户收到 `onKickedOutOfLive` 回调；需管理员或房主权限 |
+| `setAdministrator` | 将指定观众设置为管理员，传入目标 userID，通过成功/失败回调获取结果；仅房主可调用 |
+| `revokeAdministrator` | 撤销指定用户的管理员权限，传入目标 userID，通过成功/失败回调获取结果；仅房主可调用 |
 | 权限层级 | 房主（Owner）> 管理员（Admin）> 普通观众（Audience） |
 | `onKickedOutOfLive` | 被踢用户收到的回调通知；客户端须监听此事件并执行退房操作 |
 

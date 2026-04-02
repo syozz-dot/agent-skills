@@ -45,6 +45,15 @@ For each step in the scenario:
    - Read the product-level overview for the conceptual foundation
    - Read the platform-specific file for the actual code
 3. **Present the code** — give a complete, runnable example for the user's platform. Include inline comments for anything non-obvious.
+
+   **Code generation rules (MANDATORY for all code you produce):**
+
+   - **G1: Copy from slices, don't improvise** — Always read the platform-specific slice file first and use its code examples as the foundation. Copy import statements, API signatures, and type annotations verbatim from the slice. Do NOT substitute SDK names or parameter types from memory.
+   - **G2: No invented APIs** — Every class, method, property, and enum case you reference must either (a) come from the knowledge base slice, or (b) be standard platform API you're certain exists. When unsure, use a simpler but definitely-correct approach rather than guessing.
+   - **G3: Self-validate before presenting** — Before showing code, run through the verification pipeline defined in `apply/SKILL.md`. At minimum, execute the 5-point self-validation checklist. For code that will be written to the user's project, trigger the full apply pipeline (constraint compliance → compilation → integration safety).
+   - **G4: Modular structure** — Break implementations into separate files with clear single responsibilities. Don't put all logic into one massive file. Each file should be focused and manageable.
+   - **G5: Compilable by default** — Generated code must be compilable when added to a project with the correct SDK installed. Include all necessary imports, type declarations, and protocol conformances. If something can't compile without additional context, note it with a `// TODO:` comment explaining what's needed.
+
 4. **Highlight the gotchas** — surface the ALWAYS/NEVER rules that apply to this step. Frame them as "the common mistakes I've seen" rather than abstract rules.
 5. **Pause and check in** — ask the user if this step is clear, if they've implemented it, or if they have questions. Don't rush ahead.
 
@@ -78,6 +87,24 @@ If the user hits a problem mid-scenario:
 2. Load the relevant slice's troubleshooting section
 3. Walk through the diagnostic flow from the troubleshooting tree
 4. Once resolved, resume where you left off: "Great, that's fixed. Back to step N..."
+
+### Compilation verification loop
+
+When guiding a user through code implementation in interactive mode:
+
+1. After presenting code for a step, offer to verify compilation: "要我帮你验证编译吗？" (or equivalent in user's language)
+2. If the user agrees or if you're generating a complete project:
+   - Write the code files to the user's project
+   - Run the platform build command:
+     - iOS: `xcodebuild build -workspace ... -scheme ... -destination 'platform=iOS Simulator,...' -quiet`
+     - Android: `./gradlew assembleDebug`
+     - Web: `npm run build` or `npx tsc --noEmit`
+     - Flutter: `flutter build`
+   - If build succeeds → confirm "✅ 编译通过" and continue to next step
+   - If build fails → read error output, diagnose the issue, fix the code, rebuild (max 3 retries)
+   - After 3 failed retries → show the remaining errors and ask the user for help
+
+This is critical for delivering **0→1 可直接 build 运行的代码**. Each step's code should be a compilable increment.
 
 ### Adapting the pace
 

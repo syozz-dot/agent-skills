@@ -22,15 +22,15 @@ docs:
 
 | 方法 / 属性 | 说明 |
 |-------------|------|
-| `GiftStore.create(liveID:)` | 创建或获取与指定直播间绑定的单例实例 |
-| `refreshUsableGifts(completion:)` | 从服务端拉取礼物面板所需数据（分类列表 + 礼物详情）；建议在面板展示前调用 |
-| `sendGift(giftID:count:completion:)` | 发送指定数量的礼物；`count` 类型为 `UInt`；成功时触发全房间的 `onReceiveGift` 广播 |
-| `giftEventPublisher` | 礼物事件 Publisher（`PassthroughSubject<GiftEvent, Never>`）；订阅后接收房间内所有礼物事件（含自己发出的） |
-| `onReceiveGift` | `GiftEvent` 枚举值；`.onReceiveGift(liveID: String, gift: Gift, count: UInt, sender: LiveUserInfo)`；`count` 为 `UInt` |
+| `GiftStore.create(liveID)` | 创建或获取与指定直播间绑定的单例实例 |
+| `refreshUsableGifts` | 从服务端拉取礼物面板所需数据（分类列表 + 礼物详情）；建议在面板展示前调用 |
+| `sendGift(giftID, count)` | 发送指定数量的礼物；`count` 为正整数；成功时触发全房间的 `onReceiveGift` 广播 |
+| `giftEventPublisher` | 礼物事件发布器；订阅后接收房间内所有礼物事件（含自己发出的） |
+| `onReceiveGift` | 礼物事件类型；携带 `liveID`（字符串）、`gift`（Gift 对象）、`count`（正整数）、`sender`（发送者信息） |
 | `Gift` | 单个礼物数据模型；含 `giftID`、`name`、`desc`、`iconURL`、`resourceURL`（动画资源）、`level`、`coins`（价格） |
-| `GiftCategory` | 礼物分类模型；含 `categoryID`、`name`、`giftList: [Gift]` |
-| `GiftState` | 礼物模块状态容器；`usableGifts: [GiftCategory]` 为服务端返回的可用礼物列表 |
-| `setLanguage(_ language:)` | 设置礼物名称/描述的语言（如 `"zh-CN"`、`"en"`）；首个参数无外部标签；需在 `refreshUsableGifts` 前调用 |
+| `GiftCategory` | 礼物分类模型；含 `categoryID`、`name`、`giftList`（Gift 数组） |
+| `GiftState` | 礼物模块状态容器；`usableGifts` 为服务端返回的可用礼物分类列表 |
+| `setLanguage` | 设置礼物名称/描述的语言（如 `"zh-CN"`、`"en"`）；需在 `refreshUsableGifts` 前调用 |
 
 ## 最佳实践
 
@@ -46,7 +46,7 @@ docs:
 
 1. **客户端实现扣费逻辑** — 不在客户端直接修改用户余额或金币数量，防止刷礼物作弊。扣费必须通过服务端回调处理。
 2. **在 `sendGift` 成功回调中展示动画** — 发送方的 UI 应与接收方保持一致，统一从 `giftEventPublisher` 消费，避免发送方和接收方动画时序不同步。
-3. **重复订阅 `giftEventPublisher`** — 每次进房只订阅一次；不要在 `viewWillAppear` 等生命周期方法里重复订阅，否则同一礼物会触发多次动画。
+3. **重复订阅 `giftEventPublisher`** — 每次进房只订阅一次；不要在页面显示等生命周期回调中重复订阅，否则同一礼物会触发多次动画。
 
 ## 排障指南
 
@@ -70,7 +70,7 @@ docs:
     └── 检查 GiftStore 对应的 liveID 与当前房间是否一致
 
 giftEventPublisher 不触发
-├── 是否建立了订阅？ → 检查 Combine sink 是否保存到 cancellables
+├── 是否建立了订阅？ → 检查事件订阅是否已注册且订阅对象未被释放
 ├── 发送成功但接收方没收到？
 │   ├── 接收方是否在同一房间？
 │   └── 订阅时机是否在发送之后？ → 确保进房后立即订阅

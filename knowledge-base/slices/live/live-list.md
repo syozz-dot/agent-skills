@@ -16,20 +16,17 @@ docs:
 
 `LiveListStore` 是负责查询直播间列表的全局单例，观众端通过它拉取当前正在开播的直播列表、支持分页加载与分类筛选，并可根据 `seatLayoutTemplateID` 区分语聊房（1–199）与视频直播（200–999）。
 
-核心入口：
-```
-LiveListStore.shared.fetchLiveList(cursor:count:completion:)
-```
+核心入口：调用 `LiveListStore` 的 `fetchLiveList` 方法，传入分页游标（cursor）和拉取数量（count），通过成功/失败回调获取结果。
 
-拉取到列表后，将 `liveID` 传给 `LiveCoreView` 实现滑动播放。**每个 Cell 必须持有独立的 `LiveCoreView` 实例**，严禁跨 Cell 复用同一实例。
+拉取到列表后，将 `liveID` 传给 `LiveCoreView` 实现滑动播放。**每个列表 Cell 必须持有独立的 `LiveCoreView` 实例**，严禁跨 Cell 复用同一实例。
 
 ## 核心概念
 
 | 概念 | 说明 |
 |------|------|
 | **LiveListStore** | 全局单例，负责列表拉取与直播状态监听 |
-| **LiveListState** | 当前状态快照；`liveList` 保存已拉取的 `LiveInfo` 数组，`currentLive` 保存正在观看的直播信息 |
-| **LiveListEvent** | 异步事件枚举；`.onLiveEnded` 表示直播结束，`.onKickedOutOfLive` 表示被移出直播间 |
+| **LiveListState** | 当前状态快照；`liveList` 保存已拉取的 `LiveInfo` 列表，`currentLive` 保存正在观看的直播信息 |
+| **LiveListEvent** | 异步事件；`onLiveEnded` 表示直播结束，`onKickedOutOfLive` 表示被移出直播间 |
 | **LiveInfo** | 单条直播数据；含 `liveID`、`categoryList`、`seatLayoutTemplateID`、`metaData` 等字段 |
 | **cursor** | 分页游标字符串；首次请求传空字符串 `""`，后续传上一次返回值；返回空字符串表示已到末页 |
 | **count** | 单次拉取数量，推荐值 20，不宜超过 50 |
@@ -41,8 +38,8 @@ LiveListStore.shared.fetchLiveList(cursor:count:completion:)
 ### ✅ ALWAYS
 
 1. **使用 cursor 分页加载** — 首次传 `""`, 每次成功回调后保存返回的新 cursor；当返回 cursor 为空字符串时停止加载更多。
-2. **每个滑动 Cell 持有独立 LiveCoreView** — 在 `UICollectionViewCell` 初始化时创建 `LiveCoreView` 并添加到 contentView，Cell 间绝不共享实例。
-3. **在 Cell 显示/消失时管理播放生命周期** — `willDisplay` 时调用 `setLiveID` + 预加载，`didEndDisplaying` 时立即停止播放并释放资源，防止内存堆积。
+2. **每个滑动列表 Cell 持有独立 LiveCoreView** — 在列表 Cell 初始化时创建 `LiveCoreView` 并添加到视图层级，Cell 间绝不共享实例。
+3. **在 Cell 可见/不可见时管理播放生命周期** — Cell 可见时调用 `setLiveID` + 预加载，Cell 不可见时立即停止播放并释放资源，防止内存堆积。
 4. **客户端按 seatLayoutTemplateID 或 liveID 前缀过滤** — 服务端不按类型过滤，需在回调中对 `liveList` 做本地筛选再渲染。
 5. **订阅 LiveListEvent.onLiveEnded** — 直播结束时及时从列表中移除对应条目并刷新 UI，避免用户点击已结束的直播间。
 
@@ -59,9 +56,9 @@ LiveListStore.shared.fetchLiveList(cursor:count:completion:)
 
 | 错误码 | 描述 | 处理建议 |
 |--------|------|----------|
-| `-1002` | 未登录 | 确保 `LoginStore.shared.login` 成功后再调用 `fetchLiveList` |
+| `-1002` | 未登录 | 确保 `LoginStore` 的 `login` 成功后再调用 `fetchLiveList` |
 | 列表返回空 | 正常情况：当前无开播直播 | 展示"暂无直播"空态 UI；检查 categoryList 筛选条件是否过严 |
-| 列表卡顿/内存增长 | Cell 复用时 LiveCoreView 未释放 | 在 `didEndDisplaying` 中调用停播接口；确认每 Cell 使用独立实例 |
+| 列表卡顿/内存增长 | Cell 复用时 LiveCoreView 未释放 | 在 Cell 不可见时调用停播接口；确认每个 Cell 使用独立实例 |
 
 ### 排障流程
 
@@ -73,12 +70,12 @@ fetchLiveList 拉不到数据
 └── 返回空列表（非错误）→ 当前确实无开播直播，展示空态
 
 列表显示后滑动卡顿
-├── 检查 Cell 是否独立持有 LiveCoreView
-├── 检查 didEndDisplaying 是否停播
+├── 检查每个 Cell 是否独立持有 LiveCoreView
+├── 检查 Cell 不可见时是否停播
 └── 检查是否在主线程刷新 UI
 
 收到 onLiveEnded / onKickedOutOfLive 后 UI 无变化
-└── 确认已订阅 LiveListEvent 并在回调中执行 reloadData
+└── 确认已订阅 LiveListEvent 并在回调中刷新列表
 ```
 
 ## 关联知识

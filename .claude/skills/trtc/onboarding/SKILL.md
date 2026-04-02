@@ -68,7 +68,7 @@ Options:
 1. Live streaming
 2. Video / voice call
 3. Chat / messaging
-4. Multi-person room
+4. Conference / online meeting
 Last: "Something else — describe your use case"
 
 **Q2: Stage** (skip if already known)

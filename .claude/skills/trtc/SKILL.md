@@ -84,8 +84,8 @@ Based on what the user wants, take the appropriate path:
 
 | User intent | What to do |
 |-------------|------------|
-| **Learn / Understand** — "how does X work?", "what is Y?" | Read `knowledge-base/index.yaml`, find matching slices, load the product overview first, then platform details if a platform is specified. Present the relevant sections. |
-| **Review / Validate code** — "check my code", "is this right?", pastes code | Identify which slice(s) the code relates to, load those slices, and check the code against the ALWAYS/NEVER best practices. Output a structured review. See `apply/SKILL.md` for the detailed review format. |
+| **Learn / Understand** — "how does X work?", "what is Y?", "怎么用 X？", asks about specific API/error code | **Delegate to `search/SKILL.md`** — pass the identified product, platform, and query. Do NOT read slices or answer directly; the search sub-skill handles discovery, matching, and response formatting. |
+| **Review / Validate / Integrate code** — "check my code", "is this right?", pastes code, or AI-generated code needs verification before delivery | Delegate to `apply/SKILL.md` for the full verification pipeline: constraint compliance → compilation → integration safety. Also used by topic/onboarding skills as a quality gate before delivering generated code. |
 | **Build a complete feature** — "I want to implement X", "guide me through Y" | Find a matching scenario in `knowledge-base/index.yaml`. If one exists, load it and walk through step by step. If none exists, compose one from relevant slices. See `topic/SKILL.md` for the guided flow. |
 
 ### 4. Load knowledge
@@ -100,6 +100,15 @@ All knowledge lives under `knowledge-base/` relative to the project root.
 3. Scenario file (if applicable): `knowledge-base/{scenario.file}` — step-by-step integration sequence
 
 Slices with `status: planned` in the index don't have content files yet. Tell the user: "This capability is being documented. Here's what I know from the index description: [description]. For full details, see the official docs: [docs link if available]."
+
+### Mandatory delegation rule
+
+**NEVER answer a Learn/Understand question by reading slices directly.** The main skill's role is:
+1. Identify product + platform + intent
+2. Delegate to the correct sub-skill
+3. Add framing/context around the sub-skill's output
+
+The only time you read `index.yaml` directly is to determine which sub-skill to route to — not to load slice content and answer user questions.
 
 ### 5. Respond
 
@@ -118,5 +127,5 @@ For more complex interactions, these sub-skills provide specialized workflows. Y
 |-----------|------------|------|
 | **onboarding** | User is new, wants to get started, run a demo, or start a fresh integration | `onboarding/SKILL.md` |
 | **search** | User needs to find a specific slice (atomic capability) or scenario (integration workflow) | `search/SKILL.md` |
-| **apply** | User has code to validate against best practices | `apply/SKILL.md` |
+| **apply** | User has code to validate, or AI-generated code needs verification before delivery | `apply/SKILL.md` |
 | **topic** | User wants step-by-step guidance through a complete scenario | `topic/SKILL.md` |

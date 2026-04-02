@@ -16,12 +16,9 @@ docs:
 
 `LoginStore` 是所有 Live 功能的前置依赖，负责完成 TRTC SDK 的初始化与用户身份鉴权。所有主播推流、观众拉流、连麦等能力均需在登录成功后才可调用。
 
-核心入口：
-```
-LoginStore.shared.login(sdkAppID:userID:userSig:completion:)
-```
+核心入口：调用 LoginStore 的 `login` 方法，传入 SDKAppID、UserID、UserSig，通过回调获取登录结果。
 
-登录成功后 `LoginStore` 作为全局单例持有会话状态，其他 Store（`DeviceStore`、`RoomStore` 等）依赖其登录态运行。
+登录成功后 LoginStore 作为全局单例持有会话状态，其他 Store（DeviceStore、RoomStore 等）依赖其登录态运行。
 
 ## 核心概念
 
@@ -37,15 +34,15 @@ LoginStore.shared.login(sdkAppID:userID:userSig:completion:)
 ### ✅ ALWAYS
 
 1. **在业务后端生成 UserSig** — 将 SDKSecretKey 保管在服务器端，客户端通过接口获取 UserSig，禁止在客户端直接使用 SecretKey 签发。
-2. **登录成功后才调用其他 API** — 在 `login` 的 `completion` 回调 `.success` 分支中再初始化 DeviceStore、进入房间等操作，避免因登录未完成导致 `-1002` 错误。
-3. **配置 Info.plist 权限** — 推流场景需在 `Info.plist` 中声明相机与麦克风权限描述字符串，否则在 iOS 14+ 设备上调用设备接口时会直接崩溃。
+2. **登录成功后才调用其他 API** — 在 `login` 的成功回调中再初始化 DeviceStore、进入房间等操作，避免因登录未完成导致 `-1002` 错误。
+3. **声明系统权限** — 推流场景需在各平台声明相机与麦克风权限（各平台方式不同 → 见平台文件），否则调用设备接口时会被系统拒绝或崩溃。
 4. **监听登录状态变化** — 注册登录状态变更回调，处理后台断连、UserSig 过期等场景，及时触发重新登录或 UI 提示。
 
 ### ❌ NEVER
 
 1. **客户端硬编码 SecretKey** — 一旦 App 包被逆向，SecretKey 泄露将导致所有用户的 UserSig 可被伪造，造成安全事故。
 2. **使用过期 UserSig** — 过期票据会导致登录失败（`-1001`），需在签发时记录有效期并在到期前刷新。
-3. **忽略登录回调错误** — `.failure` 分支必须处理，至少向用户展示提示并上报错误日志，不可静默忽略导致后续所有功能异常。
+3. **忽略登录回调错误** — 失败回调必须处理，至少向用户展示提示并上报错误日志，不可静默忽略导致后续所有功能异常。
 
 ## 排障指南
 
@@ -55,7 +52,7 @@ LoginStore.shared.login(sdkAppID:userID:userSig:completion:)
 |--------|------|----------|
 | `-1000` | SDKAppID 未找到 / 不合法 | 核对控制台 App 列表中的 SDKAppID，确认传入类型为 `Int` |
 | `-1001` | 参数不合法（含 UserSig 过期/格式错误） | 检查 UserID 是否包含非法字符；重新从后端获取最新 UserSig |
-| `-1002` | 未登录，调用了需要登录态的 API | 确保在 `login` 回调 `.success` 后再调用其他接口 |
+| `-1002` | 未登录，调用了需要登录态的 API | 确保在 `login` 成功回调后再调用其他接口 |
 
 ### 排障流程
 
@@ -69,7 +66,7 @@ LoginStore.shared.login(sdkAppID:userID:userSig:completion:)
 │   ├── UserID 是否含非 ASCII 字符或超过 32 字节？→ 修正
 │   └── UserSig 是否由正确 SDKAppID 对应的 SecretKey 签发？→ 核对
 ├── 错误码 -1002（其他接口返回）
-│   ├── 是否在 login 完成前调用了其他接口？→ 移入 completion .success 分支
+│   ├── 是否在 login 完成前调用了其他接口？→ 移入登录成功回调中
 │   └── 登录态是否已失效（后台断连/UserSig 过期）？→ 重新登录
 └── 其他
     ├── 检查网络连通性（是否能访问 trtc.io）

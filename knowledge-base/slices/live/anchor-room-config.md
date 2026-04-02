@@ -14,22 +14,22 @@ docs:
 
 ## 功能说明
 
-在主播调用 `createLive` 开播之前，需要通过 `LiveInfo` 结构体配置直播间的基本信息（房间名称、封面图、座位模板等）以及扩展的自定义元数据（MetaData）。配置完成后将 `LiveInfo` 传入 `LiveListStore.createLive(liveInfo:)` 完成直播间创建。
+在主播调用 `createLive` 开播之前，需要通过 `LiveInfo` 配置直播间的基本信息（房间名称、封面图、座位模板等）以及扩展的自定义元数据（MetaData）。配置完成后将 `LiveInfo` 传入 `LiveListStore` 的 `createLive` 方法完成直播间创建。
 
 开播后仍可通过 `updateLiveMetaData` 动态更新 MetaData，但仅限**房主和管理员**操作。
 
 ## 核心概念
 
-### LiveInfo 结构体
+### LiveInfo 字段
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `liveID` | `String` | ✅ | 直播间唯一标识；ASCII 字符，长度 ≤ 48 字节 |
-| `liveName` | `String` | ❌ | 直播间名称；UTF-8 编码，长度 ≤ 30 字节（约 10 个汉字） |
-| `coverURL` | `String` | ❌ | 封面图 URL；建议宽高比 9:16，大小 ≤ 500KB |
-| `seatTemplate` | `SeatTemplate` | ✅ | 连麦座位布局模板（如 `.videoDynamicGrid9Seats`） |
-| `notice` | `String` | ❌ | 直播间公告文本 |
-| `isGiftEnabled` | `Bool` | ❌ | 是否开启礼物功能，默认 `false` |
+| `liveID` | 字符串 | ✅ | 直播间唯一标识；ASCII 字符，长度 ≤ 48 字节 |
+| `liveName` | 字符串 | ❌ | 直播间名称；UTF-8 编码，长度 ≤ 30 字节（约 10 个汉字） |
+| `coverURL` | 字符串 | ❌ | 封面图 URL；建议宽高比 9:16，大小 ≤ 500KB |
+| `seatTemplate` | 枚举 `SeatTemplate` | ✅ | 连麦座位布局模板（如 `videoDynamicGrid9Seats`） |
+| `notice` | 字符串 | ❌ | 直播间公告文本 |
+| `isGiftEnabled` | 布尔值 | ❌ | 是否开启礼物功能，默认 `false` |
 
 ### MetaData 约束
 
