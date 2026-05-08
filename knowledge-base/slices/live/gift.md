@@ -5,9 +5,6 @@ product: live
 tags: [gift, send, receive, GiftStore, reward]
 platforms: [ios, android, web, flutter]
 related: [live/audience-watch, live/barrage]
-docs:
-  - title: 礼物集成指南
-    url: https://trtc.io/zh/document/74604
 ---
 
 # 礼物

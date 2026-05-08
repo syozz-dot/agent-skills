@@ -5,9 +5,6 @@ product: live
 tags: [audience, list, count, LiveAudienceStore]
 platforms: [ios, android, web, flutter]
 related: [live/audience-watch, live/audience-manage]
-docs:
-  - title: 搭建视频直播 — 观众列表
-    url: https://trtc.io/zh/document/74596
 ---
 
 # 观众列表

@@ -5,9 +5,6 @@ product: live
 tags: [camera, microphone, device, DeviceStore, permission]
 platforms: [ios, android, web, flutter]
 related: [live/login-auth, live/anchor-preview, live/coguest-apply]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 设备管理

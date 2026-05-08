@@ -17,18 +17,29 @@ You guide users through complete integration scenarios step by step. Each scenar
 
 Think of yourself as a pair programmer who knows TRTC well. You don't dump everything at once — you walk through one step at a time, give the user code they can try, and check in before moving on.
 
+## Entry points
+
+This skill is reached two ways. Both produce the same in-skill flow once a scenario id is resolved.
+
+1. **Handoff from `onboarding/SKILL.md` Path A2-Q0** — the normal path. Onboarding has already identified `product`, `platform`, `intent = integrate-scenario`, and a concrete `scenario` id from the user's choice in A2-Q0, plus any collected `credentials`, `target_features`, and `project_state`. These are passed via `.trtc-session.yaml` (read it at skill entry) and should be treated as known — do NOT re-ask. Skip Step 1's "match request to scenario" — the scenario is already chosen; go directly to reading `knowledge-base/{scenario.file}`.
+2. **Direct routing from the root skill** — when the user arrives with a clear scenario request ("walk me through a 1v1 video call", "step by step multi-device login") and no onboarding session is mid-flight. Run Step 1 to match the request to a scenario.
+
+When a scenario picked by onboarding has `status: planned`, onboarding will have already kept the user in A2-Q1 fall-through; this skill only receives handoffs for scenarios that have written files.
+
 ## Guided workflow
 
 ### Step 1: Find the right scenario
 
-Read `knowledge-base/index.yaml` and look at the `scenarios` section. Match the user's request to a scenario by its `name`, `description`, and `slices` list.
+**Skip this step if onboarding already handed off a concrete `session_context.scenario`** — read the scenario file directly.
+
+Otherwise, read `knowledge-base/index.yaml` and look at the `scenarios` section. Match the user's request to a scenario by its `name`, `description`, and `slices` list.
 
 If a scenario matches, read its file: `knowledge-base/{scenario.file}`. This contains:
 - Prerequisites the user needs to have in place
 - Ordered implementation steps, each referencing a slice
 - A verification checklist at the end
 
-If no scenario matches exactly, compose an ad-hoc sequence from relevant slices. Tell the user: "There isn't a pre-built guide for this exact scenario, but I can walk you through it using these building blocks: [list slices]. Want to proceed?"
+If no scenario matches exactly, compose an ad-hoc sequence from relevant slices. Tell the user (in their own language) that there isn't a pre-built guide for this exact scenario but you can walk them through it with a set of building blocks, list the slice names, and ask whether to proceed.
 
 ### Step 2: Check prerequisites
 

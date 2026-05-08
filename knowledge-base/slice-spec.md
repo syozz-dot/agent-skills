@@ -159,20 +159,10 @@ platforms: [web, android, ios, flutter]  # [必填] 支持的平台
 related:                    # [可选] 关联的 slice，没有则省略此字段
   - chat/msg-receive
   - chat/msg-custom
-docs:                       # [必填] 参考的官方文档（至少 1 条）
-  - title: 发送消息文档
-    url: https://trtc.io/zh/document/xxx
 ---
 ```
 
-**`docs` vs 平台级 `api_docs` 的分工**：
-
-| 字段 | 内容类型 | 举例 |
-|------|---------|------|
-| 产品级 `docs` | 官方**教程 / 指南**页（讲"怎么用这个能力"） | `https://trtc.io/zh/document/74598`（观众申请连麦指南） |
-| 平台级 `api_docs` | 平台 **API 参考**页（讲"这个类/方法的签名、参数、返回值") | `https://tencent-rtc.github.io/TUIKit_iOS/documentation/atomicxcore/cogueststore/`（CoGuestStore 类 API 页） |
-
-两者互补，不要混填。
+> **官方文档链接统一放在平台实现文件的 `api_docs` 字段**，产品级概览不放文档链接——因为教程/指南页通常按平台区分，放在跨平台的产品级文件里不合适。
 
 **平台实现文件的 frontmatter 字段**见「平台实现文件」小节。
 
@@ -250,7 +240,7 @@ api_docs:                   # [必填] 该平台 API 参考文档链接（至少
 | ✅ 精确到**类/模块**级 | 一条链接打开就能看到本 slice 涉及的具体类 API | `https://tencent-rtc.github.io/TUIKit_iOS/documentation/atomicxcore/cogueststore/` |
 | ✅ 多个类的 slice 可多条 | 一个 slice 涉及多个 Store/Manager 时分别列出 | `CoGuestStore` + `DeviceStore` |
 | ❌ 不要填 SDK 首页 | 首页没有具体类签名，AI 拿不到校验所需信息 | `https://trtc.io/sdk` |
-| ❌ 不要填产品级教程页 | 那是产品级 `docs` 的内容，分工重复 | `https://trtc.io/zh/document/74598` |
+| ❌ 不要填产品级教程页 | 教程/指南页不属于 API 参考 | `https://trtc.io/zh/document/74598` |
 
 **若该平台没有可用的 API 参考页**（如 Electron/Unity 某些模块）：
 - 优先考虑这个 slice 在该平台是否真的需要独立文件
@@ -496,7 +486,7 @@ apply skill 对旧格式做**尽力解析**并标注 `warning: legacy_verify_for
 
 ### 产品级概览 DoD
 
-- [ ] Frontmatter 必填字段齐全（id / name / product / tags≥3 / platforms / docs≥1）
+- [ ] Frontmatter 必填字段齐全（id / name / product / tags≥3 / platforms）
 - [ ] 每个 section 标题都带 `[必填]` / `[可选]` / `[条件必填]` 标签
 - [ ] `功能说明` 能让一个没接触过 TRTC 的开发者 30 秒内明白这个能力是什么
 - [ ] `核心概念` 无平台特有 API 签名（自查：逐个 API 名过一遍，iOS/Android 开发者读到都不应困惑）
@@ -508,7 +498,6 @@ apply skill 对旧格式做**尽力解析**并标注 `warning: legacy_verify_for
 ### 平台实现文件 DoD
 
 - [ ] Frontmatter 必填字段齐全（id / platform / api_docs≥1）
-- [ ] `api_docs` 链接精确到**类/模块**级，不是 SDK 首页或教程页
 - [ ] `api_docs` 链接精确到**类/模块**级，不是 SDK 首页或教程页
 - [ ] 每个 section 标题都带必填/可选标签
 - [ ] `前置条件` 没有重复 base-setup / login-auth 已覆盖的通用依赖
@@ -568,7 +557,7 @@ apply skill 对旧格式做**尽力解析**并标注 `warning: legacy_verify_for
 | 正文引用其他 slice | `[slice-id](相对路径.md)` 或 `（→ slice-id）` |
 | 代码注释中标注依赖 | `// 前置：xxx 完成（→ slice-id）` |
 | Frontmatter 中的 related | 只写 `slice-id`，不带路径 |
-| 指向官方文档 | 放在 Frontmatter 的 `docs` 或平台文件的 `api_docs` 中，正文不重复 URL |
+| 指向官方文档 | 放在平台文件的 `api_docs` 中，正文不重复 URL |
 
 ### 6.2 Slice 与 Scenario 的边界
 

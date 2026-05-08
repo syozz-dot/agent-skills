@@ -5,9 +5,6 @@ product: live
 tags: [list, fetch, category, slide-play, LiveListStore]
 platforms: [ios, android, web, flutter]
 related: [live/audience-watch, live/login-auth]
-docs:
-  - title: 搭建视频直播 — 直播列表
-    url: https://trtc.io/zh/document/74610
 ---
 
 # 直播列表

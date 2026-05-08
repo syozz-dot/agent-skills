@@ -10,7 +10,7 @@
 
 ## Basic Features
 
-- [Conference Scheduling](https://trtc.io/document/63139.md)
+- [Conference Scheduling](https://trtc.io/document/63139.md)： Learn how to use the new scheduled conference feature in TUIRoomKit to reserve and schedule conferences with ease. From scheduling to managing, TUIRoomKit makes it simple to host successful conferences.
 - [In-Conference Call](https://trtc.io/document/64691.md)
 - [Conference Control](https://trtc.io/document/59974.md)
 - [UI Customization](https://trtc.io/document/54848.md)

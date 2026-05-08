@@ -5,9 +5,6 @@ product: live
 tags: [beauty, smooth, whiten, ruddy, BaseBeautyStore, filter]
 platforms: [ios, android, web, flutter]
 related: [live/anchor-preview, live/coguest-apply, live/device-control]
-docs:
-  - title: 美颜集成指南
-    url: https://trtc.io/zh/document/74606
 ---
 
 # 美颜

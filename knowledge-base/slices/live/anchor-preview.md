@@ -5,9 +5,6 @@ product: live
 tags: [anchor, preview, LiveCoreView, pushView, camera]
 platforms: [ios, android, web, flutter]
 related: [live/device-control, live/anchor-room-config, live/beauty, live/audio]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 主播预览

@@ -1,212 +1,221 @@
 ---
 name: trtc-search
 description: >
-  Internal AI-facing slice lookup for the TRTC knowledge base. Called by
-  `onboarding` (to load slice content during Path A2 integration) and by
-  `docs` (to do slice-first lookup before falling back to llms.txt). Takes
-  (product, platform, query, intent) and returns matched slices with source
-  attribution and confidence. Covers all products (Chat, Call, RTC Engine,
-  Live, Room) and handles cross-product relations (e.g., "直播弹幕" spanning
-  Live + Chat). **NOT** routed to by user intent directly — users see the
-  final answer composed by the calling skill, not raw slice content from here.
-  Does NOT resolve llms.txt URLs; that is the `docs` skill's responsibility.
+  Discovers matching slices from the TRTC knowledge base given a natural-language
+  query. Use when onboarding or docs needs to find slice IDs for a feature
+  description, symptom, error code, or pattern query. Accepts (product, platform,
+  query, intent) and returns matched slices with confidence and source attribution.
+  Not user-facing — callers compose the final answer from returned results.
 ---
 
 # TRTC Knowledge Base Search
 
-You search the TRTC knowledge base to find relevant atomic capabilities (slices) and integration scenarios. You handle multi-product, cross-platform searches with a structured fallback chain.
+You search the TRTC knowledge base to find relevant atomic capabilities (slices) and integration scenarios. You handle multi-product, cross-platform searches with a structured strategy chain and return a machine-readable response.
 
-## Inputs (from root skill)
+---
+
+## Response Contract (read this first)
+
+Every call returns exactly this shape. The calling skill (`docs` / `onboarding`) reads fields by name — do NOT improvise the format, do NOT collapse fields into prose.
+
+```yaml
+response:
+  status: matched | no_match | no_slice | ambiguous_product | status_planned
+  matches:                             # populated when status ∈ {matched, status_planned}; empty otherwise
+    - slice_id: <product/ability>      # e.g. live/barrage
+      confidence: high | medium | low
+      match_strategy: exact | tag | product-keyword | cross-related | fuzzy
+      content_loaded: full | summary | index-only
+      file_paths_read: [...]           # actual file paths opened this turn (relative to repo root)
+      related: [...]                   # one-hop related slice_ids NOT already in matches
+  ambiguous_candidates: [...]          # populated ONLY when status = ambiguous_product, e.g. [live, chat]
+  reason: "..."                        # populated ONLY when status ≠ matched; one-sentence cause
+```
+
+### status semantics
+
+| status | Meaning | matches | ambiguous_candidates | reason |
+|--------|---------|---------|----------------------|--------|
+| `matched` | ≥ 1 slice found with usable content | non-empty | — | — |
+| `status_planned` | slice exists in index but content not yet written | non-empty, `content_loaded: index-only` | — | "slice `<id>` is status: planned" |
+| `no_slice` | product exists but has zero slices in KB (e.g., Call, Conference at early stage) | empty | — | "product `<id>` has no slices in KB" |
+| `no_match` | search ran to exhaustion without finding relevant slices | empty | — | one-line cause (e.g., "error code 99999 not in any slice.error_codes or body text") |
+| `ambiguous_product` | product was null AND fuzzy-only hits span multiple products | empty | non-empty (e.g., `[live, chat]`) | "query plausibly matches multiple products; ask user" |
+
+### confidence → match_strategy mapping
+
+Confidence is derived from match_strategy, not judged separately:
+
+- `high` ← `exact` or `tag`
+- `medium` ← `product-keyword` or `cross-related`
+- `low` ← `fuzzy`
+
+Callers should use `confidence` for quick guards (e.g., `if response.matches[0].confidence == 'high': answer from slice, skip llms.txt`) and `match_strategy` for traceability when debugging.
+
+### What callers do with each status
+
+- `matched` → read `matches[].file_paths_read`, compose answer from slice contents.
+- `status_planned` → show the slice's index-level description; fall through to caller's fallback (docs → llms.txt).
+- `no_slice` / `no_match` → caller falls back to its own escape route (docs: llms.txt lookup; onboarding: ask user / degrade).
+- `ambiguous_product` → caller asks the user which of `ambiguous_candidates` they mean, then re-calls search with the confirmed product.
+
+---
+
+## Inputs (from calling skill: `docs` or `onboarding`)
 
 - **product**: Identified product (chat/call/rtc-engine/live/conference), or `null` if ambiguous
 - **platform**: Identified platform (web/android/ios/flutter/electron), or `null`
 - **query**: The user's original question / keywords
-- **intent**: learn / troubleshoot / error-code
+- **intent**: one of the values listed below.
+
+> **Authoritative enum**: this file is the canonical source for the set of `intent` values search accepts. Callers (`docs`, `onboarding`) MUST only pass a value from this list and MUST map their own domain intent (e.g. docs' `slice-lookup`, onboarding's Path B free-text symptom) to one of these four. When this list changes, callers update their mapping tables. The list:
+
+- `error-code` — from `docs`: query contains a numeric error code. Prioritize `exact`; on miss, run full-text digit search before other strategies.
+- `pattern` — from `docs`: user asks for the official pattern of X, or compares X vs Y. Prioritize `tag`.
+- `feature` — from `docs` (implementation method lookup) or `onboarding` (user described a feature in natural language): need to find the corresponding slice ID. Prioritize `tag` / `product-keyword`. When multiple slices match, return summaries (`content_loaded: summary`) for the caller to present as a selection list.
+- `troubleshoot` — from `onboarding` Path B: user described a symptom in free text, need to find the slice(s) with relevant troubleshooting content. Match against slice troubleshooting sections and in-file `error_codes` sections.
+
+---
 
 ## Search Workflow
 
 ### Step 1: Read the index
 
-Read `knowledge-base/index.yaml` to get the full catalog. Key sections:
-- **products**: Product list with `id`, `name`, `description`, `llms_file` (path reference used by the `docs` skill, not by search)
-- **cross_product_relations**: Cross-product dependency mappings
-- **slices**: Each slice has `id`, `name`, `tags`, `platforms`, `file`, `description`, `status`
-- **scenarios**: Each scenario has `id`, `name`, `slices`, `file`, `description`
+Read `knowledge-base/index.yaml` to get the catalog. Fields present at the index level:
 
-> **Out of scope**: do NOT read llms files, do NOT fetch official doc URLs. If the caller needs a doc URL (e.g., fallback when no slice matches an error code), return a `no_match` status and let the calling skill (`docs`) do the llms.txt lookup.
+- **products**: `id`, `name`, `description`, `llms_file` (`llms_file` is used by the `docs` skill, not by search)
+- **cross_product_relations**: `id`, `products`, `slices`, `description`
+- **slices**: `id`, `name`, `tags`, `platforms`, `file`, `description`, `status`
+- **scenarios**: `id`, `name`, `slices`, `file`, `description`, `status`
 
-### Step 2: Seven-Strategy Matching (by priority)
+> **Fields NOT in index.yaml** (common misconception — don't assume them on the index):
+> - `error_codes` — lives inside the slice file body as an `## 错误码` / `## error_codes` section. To check it, the `file` path must be read.
+> - `related` — same: lives inside slice file frontmatter/body, not in index.
+> - `platform_files[platform]` — there is no such index field. Platform-specific content lives at `slices/{product}/{platform}/{ability}.md` on disk. To check availability, try reading that path; if it doesn't exist, there is no platform-specific slice for that pairing.
 
-Try all strategies and collect matches. Earlier strategies have higher priority:
+> **Out of scope**: do NOT read llms files, do NOT fetch official doc URLs. If the caller needs a doc URL (e.g., fallback when no slice matches an error code), return `status: no_match` and let the calling skill (`docs`) do the llms.txt lookup.
 
-#### S1. Error Code Exact Match
-If the query contains a numeric error code (e.g., 6206, 6208, 70001):
-- Search `error_codes` field on all slices
-- If found → return that slice with high confidence
-- If not found → go to Fallback F4 (product error code doc)
+### Step 2: Five-Strategy Matching (by priority)
 
-#### S2. Slice ID Exact Match
-If the query mentions a slice ID like "chat/multi-instance":
-- Direct lookup in the slices array
-- Return with high confidence
+Try strategies in order; collect matches. Earlier strategies have higher priority. Higher priority wins on rank; ties broken by tag-intersection count.
 
-#### S3. Tag Exact Match
-Extract keywords from the query and match against slice `tags` arrays:
-- Use both the original keywords AND their synonyms from the keyword mapping table below
-- Exact tag intersection (query keywords ∩ slice tags)
+| # | match_strategy | Triggers on | How to match |
+|---|---------------|-------------|--------------|
+| 1 | `exact` | query contains a numeric error code, a known slice_id like `chat/multi-instance`, or a scenario_id | (a) If an error code: look inside each slice's `file` for its `## 错误码` / `## error_codes` section and match the code. On `intent=error-code` miss, additionally grep all slice file bodies for the digit sequence (covers codes mentioned in troubleshooting prose). (b) If a slice_id or scenario_id: direct lookup in index arrays. |
+| 2 | `tag` | after exact (or alongside when no error code) | Extract keywords from the query (LLM does Chinese↔English bidirectionally on its own; consult the "Keyword Hints" table below only for non-intuitive SDK naming). Intersect with each slice's `tags`. Rank by intersection count. |
+| 3 | `product-keyword` | `product` is set AND tag didn't produce a high-confidence hit | Within that product's slices, fuzzy-match against `name` (higher weight) and `description`. Both Chinese and English terms. |
+| 4 | `cross-related` | `tag` or `product-keyword` produced a partial hit AND either (a) query contains signals of a second product, or (b) the initial hit set feels incomplete | Expand via `cross_product_relations` entries whose `products` overlap, OR follow the already-matched slice's `related` list (read from slice file) for one hop. Fold those into matches at medium confidence. |
+| 5 | `fuzzy` | no strategy 1-4 produced anything | Last-resort: use Keyword Hints for bidirectional expansion, match against scenario `name` + `description`, or match slice `description` without tag overlap. All hits are `confidence: low`. |
 
-#### S4. Product + Keyword Match
-If product is identified, narrow to that product's slices, then fuzzy match against `name` and `description`:
-- Match Chinese and English terms
-- Weight `name` matches higher than `description` matches
+#### Intent-driven priority adjustments
 
-#### S5. Cross-Product Relation Match
-Search `cross_product_relations` in index.yaml:
-- If the query spans multiple products (e.g., "直播弹幕"), find the relation entry
-- Load slices from ALL related products
+| intent | Priority hint |
+|--------|---------------|
+| `error-code` | `exact` runs first; on miss AND `intent=error-code`, run full-text digit grep before strategy 2. Return immediately on strategy-1 hit. |
+| `pattern` | Run all strategies, but rank `tag` hits above `product-keyword`. |
+| `feature` | `tag` and `product-keyword` prioritized. If ≥ 4 matches total, downgrade all `content_loaded` to `summary` so the caller can present a selection. |
+| `troubleshoot` | Prefer slices whose body has a troubleshooting section relevant to the described symptom. Check in-file `error_codes` and 排障 sections when reading for rank. |
 
-#### S6. Scenario Match
-Match against scenarios' `name`, `description`, and `slices` fields:
-- If a scenario matches, note it for potential topic sub-skill handoff
+#### product=null degradation
 
-#### S7. Fuzzy Match
-When no exact matches found:
-- Apply Chinese-English keyword mapping (see table below)
-- Follow `related` links from the best partial match (one-hop expansion)
-- Match against slice tags and descriptions
+When `product` is `null`:
+
+- Strategies `exact` and `tag` run normally (they don't need product). If either yields a `confidence: high` hit, return `status: matched` — do NOT trigger ambiguity.
+- `product-keyword` is skipped (it requires product).
+- `cross-related` and `fuzzy` run as full-catalog searches, capped at **5** matches, ranked by tag-intersection count (ties: `name` match > `description` match).
+- If all remaining results are `confidence: low` (fuzzy only) AND they span ≥ 2 products, return `status: ambiguous_product` with `ambiguous_candidates` listing the distinct products seen. DO NOT return low-confidence results — force the caller to disambiguate first.
+- If fuzzy hits stay within one product, return them normally as `matched`.
 
 ### Step 3: Platform Filtering
 
-If a platform is specified:
-- Filter results to slices that support that platform (check `platforms` array)
-- Keep cross-platform overviews as secondary results (they're always useful)
-- Apply framework-to-platform mapping:
+If `platform` is specified:
+
+- Filter results to slices whose `platforms` array contains the requested platform.
+- Keep cross-platform overviews (slices present at `slices/{product}/{ability}.md` with no platform subpath) as secondary results — they're generally useful.
+- Framework-to-platform mapping (applied at the caller's layer but repeated here as reference):
   - React / Vue → Web
   - Kotlin → Android
   - Swift / Objective-C → iOS
   - Dart → Flutter
 
-If the user needs code but hasn't specified a platform, ask them to specify.
+If the user needs code but hasn't specified a platform, surface that fact via `reason` (`"platform required for code example"`) — the caller asks.
 
 ### Step 4: Progressive Content Loading
 
-Load content based on match count:
-- **Top 1-3 matches**: Read the full slice file (`knowledge-base/{slice.file}`)
-  - Then read platform-specific file if platform is specified (`knowledge-base/{slice.platform_files[platform]}`)
-- **4+ matches**: Return index-level summaries only (name, description, tags)
-  - Let the user pick which to dive into
+Set `content_loaded` per match based on result-set size:
 
-For slices with `status: planned`, don't try to read the file. Report what's known from the index.
+- **Top 1-3 matches in `matches[]`** → read the full slice file at `knowledge-base/{slice.file}`; if a platform-specific file exists at `knowledge-base/slices/{product}/{platform}/{ability}.md`, read that too. Set `content_loaded: full`.
+- **4+ matches** (typical on `intent=feature` ambiguity) → do NOT read each file; return index-level fields only (name, description, tags). Set `content_loaded: summary`. Let the caller present a selection.
+- **Slice with `status: planned`** → do NOT try to open its `file` (it likely doesn't exist yet). Use the index description. Set `content_loaded: index-only` and set top-level `status: status_planned` on the response.
 
-### Step 5: Fallback Chain (only when Step 2 yields NO matches)
+Record every file actually read in `matches[].file_paths_read`. This is the caller's canonical source for "which files grounded the answer".
 
-Execute fallbacks in order, stop at the first that provides useful content:
+### Step 5: Build the response
 
-#### F1. Related Slice Expansion
-Find the closest partial match from Step 2 and follow its `related` links.
-Load those related slices as "possibly relevant" results.
+Fill the Response Contract based on Step 2-4 results:
 
-#### F2. Cross-Product Suggestion
-If the query relates to a product feature that depends on another product:
-- Check `cross_product_relations` for applicable mappings
-- Suggest: "Live 弹幕功能依赖 Chat SDK 的直播群能力，可参考 chat/group-avchatroom"
+| Situation | response.status | matches | extras |
+|-----------|----------------|---------|--------|
+| Strategies 1-5 produced content-loadable hits | `matched` | populated; confidence derived from match_strategy | — |
+| Hits all pointed at planned slices | `status_planned` | populated with `content_loaded: index-only` | `reason: "slice <id> is status: planned"` |
+| product exists in index but has zero slices | `no_slice` | empty | `reason: "product <id> has no slices in KB"` |
+| product=null AND only fuzzy hits spanning ≥ 2 products | `ambiguous_product` | empty | `ambiguous_candidates: [...]`, `reason: "..."` |
+| Strategies exhausted, nothing relevant at any confidence | `no_match` | empty | `reason: "..."` (be specific — error code not found / no tag overlap / etc.) |
 
-#### F3. No Match — defer to caller
-If nothing in the KB matches at all (F1 and F2 both empty):
-- Return a `no_match` result with the product/platform/query context and a short reason
-- Do NOT invent general-knowledge answers
-- Do NOT fetch or cite llms.txt URLs — the calling skill (`docs`) owns that fallback
-- Caller signals: "knowledge base has no slice for this; please fall back to llms.txt or tell the user the capability isn't documented yet"
+> **Display rules live with the caller**, not with search. search only reports `file_paths_read`; it does not dictate how the caller quotes code, when to include snippets, or how to render confidence. See `docs/SKILL.md` Step 3 and `onboarding/reference/path-a2-integrate.md` slice-loading block for those rules.
 
-### Step 6: Return Results
+---
 
-Structure the response with:
-- **Matched slices** and their content (or summaries)
-- **Source attribution**:
-  - `📚 KB slice` — from local knowledge base
-  - `🔗 no-match (→ defer to docs)` — no slice matched; caller should fall back to llms.txt
-- **Confidence level**:
-  - 🟢 高 — exact match (S1/S2/S3)
-  - 🟡 中 — keyword/cross-product match (S4/S5/S6)
-  - 🔴 低 — fuzzy match or fallback (S7/F1-F2)
-- **Related slices** for further exploration
+## Keyword Hints (non-intuitive mappings only)
 
-### Code example rules
+Bidirectional Chinese↔English translation for common vocabulary is delegated to the LLM — it already understands that "弹幕" ≈ barrage/danmu, "美颜" ≈ beauty, "进房" ≈ enter-room. This table lists **only mappings that are NOT obvious from translation alone** — cases where the user's colloquial term differs from the SDK's internal naming.
 
-When including code examples in search results:
-1. **Always use code from the platform-specific slice file** — never from the product-level overview (which may have pseudo-code or simplified examples)
-2. **Copy code blocks from the slice** — adapt for context but preserve exact import statements, API signatures, and type annotations. Do NOT substitute SDK names or parameter types from memory.
-3. **If no platform-specific file exists** for the requested platform, state it explicitly: "该平台代码示例暂未收录" — do NOT synthesize code from general knowledge
-4. **Check the slice's gotcha/注意事项 section** for platform-specific type requirements, naming conventions, and common pitfalls before presenting code
+| User phrasing | SDK tag / keyword | Why it needs a hint |
+|---------------|--------------------|---------------------|
+| 互踢 | `kick-offline`, `multi-instance` | Not an SDK term; the root capability is multi-instance login conflict |
+| PK | `battle`, `BattleStore` | "PK" is colloquial; SDK names it battle |
+| 黑屏 | `setLiveID`, `black-screen` | The usual root cause is a missed `setLiveID` call, not obvious from "black screen" |
+| 跨房连线 | `co-host`, `CoHostStore` | SDK-proprietary term |
+| 连麦 | `co-guest`, `seat`, `CoGuestStore` | SDK uses `co-guest`, not the more literal `co-mic` |
+| 踢人 | `kick`, `kickUserOutOfRoom` | Exact method name is non-intuitive |
+| 音效 | `audio-effect`, `changer`, `reverb`, `ear-monitor` | Multiple sub-capabilities under one colloquial term |
+| 观众 | `audience`, `LiveAudienceStore` | Associated Store name is not what a user would guess |
 
-## Chinese-English Keyword Mapping
+For any phrasing NOT listed: let the LLM do its own Chinese↔English bridging, then match against `tags` / `name` / `description` directly. Do NOT expand this table defensively with obvious translations — it only pays for its maintenance cost on the non-obvious ones.
 
-Use this mapping to expand search queries bidirectionally:
-
-| 中文 | English Keywords |
-|------|-----------------|
-| 互踢 | kick-offline, multi-instance |
-| 弹幕 | barrage, avchatroom, danmu |
-| 美颜 | beauty, smooth, whiten, ruddy, BaseBeautyStore |
-| 连麦 | co-guest, co-streaming, seat, CoGuestStore |
-| 推流 | publish, stream, pushView, anchor |
-| 拉流 | subscribe, pull-stream, playView, audience |
-| 进房 | enter-room, join, joinLive |
-| 消息 | message, msg |
-| 群组 | group |
-| 会话 | conversation |
-| 登录 | login, auth, LoginStore, SDKAppID, UserSig |
-| 初始化 | init, setup, create |
-| 离线推送 | offline-push, apns, fcm |
-| 撤回 | recall, revoke |
-| 已读 | read-receipt |
-| 通话 | call, voice, video |
-| 直播 | live, streaming, broadcast, LiveCoreView |
-| 礼物 | gift, GiftStore, reward |
-| 音效 | audio-effect, changer, reverb, ear-monitor, AudioEffectStore |
-| 房间 | room, LiveListStore, createLive |
-| 好友 | friend |
-| 信令 | signaling |
-| 开播 | start-live, anchor, preview, createLive |
-| 结束直播 | end-live, endLive, lifecycle |
-| 观众 | audience, viewer, LiveAudienceStore |
-| 踢人 | kick, kickUserOutOfRoom |
-| 禁言 | mute, disableSendMessage |
-| 管理员 | admin, administrator, setAdministrator |
-| 摄像头 | camera, DeviceStore, openLocalCamera |
-| 麦克风 | microphone, DeviceStore, openLocalMicrophone |
-| 黑屏 | black-screen, setLiveID |
-| 错误码 | error-code, ErrorInfo |
-| 跨房连线 | co-host, connection, CoHostStore |
-| PK | battle, BattleStore, pk |
+---
 
 ## Edge Cases
 
-### Missing Content
-| Scenario | Handling |
-|----------|---------|
-| User asks about a product with no slices (e.g., Call, Room) | Return product description from index + `no_slice` status; let caller (docs) fall back to llms.txt |
-| Slice with `status: planned` | Return the slice's index description + `status: planned` flag; let caller decide fallback |
-| Platform requested but no platform_files entry | Return product-level overview + `no_platform_file` flag; say "该平台代码示例暂未收录" to the caller, do NOT synthesize code |
+### Missing content
 
-### Cross-Product Questions
-| Scenario | Handling |
-|----------|---------|
-| "直播+弹幕" (Live+Chat) | Match via cross_product_relations → load slices from both products |
-| "视频通话+聊天" (Call+Chat) | Identify cross-product need → search both → merge results |
-| "该用哪个产品？" | Route back to root skill — this is product identification, not search |
+| Scenario | status | Handling |
+|----------|--------|----------|
+| Product exists in index but has no slices (e.g., call, conference at early phase) | `no_slice` | `matches: []`, `reason: "product <id> has no slices in KB"` — caller (docs) falls back to llms.txt |
+| Matched slice has `status: planned` in index | `status_planned` | `matches[].content_loaded: index-only`, use index description; caller decides fallback |
+| Platform requested but no platform-specific file at `slices/{product}/{platform}/{ability}.md` | `matched` | Return product-level overview with `content_loaded: full`, `reason: "no platform-specific file for <platform>"` — caller tells the user in their own language that the platform-specific code example isn't yet in the KB; do NOT synthesize code |
 
-### Search Ambiguity
-| Scenario | Handling |
-|----------|---------|
-| Vague query like "消息" | Return top 3-5 message-related slices → let user narrow down |
-| Mixed Chinese-English "怎么 kick offline" | Apply keyword mapping → match to relevant slice |
-| Only an error code "6208" | S1 exact match → return slice + troubleshooting guide |
-| Error code not in any slice | Return `no_match`; caller (docs) falls back to official error-code doc via llms.txt |
+### Cross-product questions
 
-### Platform Edge Cases
 | Scenario | Handling |
 |----------|---------|
-| Conceptual question, no platform needed | Return product-level overview only |
-| Needs code but no platform specified | Ask user to specify |
-| React/Vue → Web, Kotlin → Android, Swift → iOS, Dart → Flutter | Auto-map framework to platform |
+| "直播+弹幕" (Live+Chat) | `tag` hits live/* + query contains chat signal → `cross-related` expands via `cross_product_relations` → matches include slices from both products |
+| "视频通话+聊天" (Call+Chat) | Same pattern: `tag`/`product-keyword` initial hits + `cross-related` expansion |
+| "该用哪个产品？" | Out of scope — return `no_match` with `reason: "product-selection question, not a slice lookup"`; caller (root / onboarding) handles product identification |
+
+### Search ambiguity
+
+| Scenario | Handling |
+|----------|---------|
+| Vague single-term query like "消息" with product=null | `tag` returns many chat/* hits → `matched` with `content_loaded: summary` for the top 3-5; caller presents selection |
+| Mixed Chinese-English "怎么 kick offline" | LLM bridges "kick offline" → Keyword Hints row for 互踢 → `tag` match |
+| Only an error code like "6208" | `exact` (strategy 1) → `matched`, confidence `high` |
+| Error code not in any slice | `no_match`, `reason: "error code <code> not in any slice.error_codes or body text"` — caller (docs) falls back to llms.txt |
+
+### Platform edge cases
+
+| Scenario | Handling |
+|----------|---------|
+| Conceptual question, no platform needed | Return product-level overview only; `platform` argument can be null |
+| Needs code but no platform specified | Return `matched` with whatever was found; set `reason: "platform required for code example"` — caller asks |
+| React/Vue → Web, Kotlin → Android, Swift/ObjC → iOS, Dart → Flutter | Caller normalizes; search accepts the normalized platform |

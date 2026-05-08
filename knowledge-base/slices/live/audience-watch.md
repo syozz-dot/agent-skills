@@ -5,9 +5,6 @@ product: live
 tags: [audience, watch, join, leave, playView, LiveCoreView]
 platforms: [ios, android, web, flutter]
 related: [live/live-list, live/login-auth, live/barrage, live/gift]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 观众观看

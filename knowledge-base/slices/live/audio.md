@@ -5,9 +5,6 @@ product: live
 tags: [audio, voice, effect, changer, reverb, ear-monitor, AudioEffectStore]
 platforms: [ios, android, web, flutter]
 related: [live/anchor-preview, live/device-control]
-docs:
-  - title: 音效管理
-    url: https://trtc.io/zh/document/74608
 ---
 
 # 音效管理

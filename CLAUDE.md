@@ -21,7 +21,7 @@ ai-integration/
 │   ├── index.yaml                     # 全量索引（v4.0 — products/slices/scenarios/cross_product_relations）
 │   ├── slice-spec.md                  # Slice 定义规范（拆分标准、编写规范、规划方法论）
 │   ├── slices/                        # 原子能力片段
-│   │   ├── {product}/                 # 按产品分类 (chat/call/rtc-engine/live/room)
+│   │   ├── {product}/                 # 按产品分类 (chat/call/rtc-engine/live/conference)
 │   │   │   ├── {ability}.md           # 产品级概览（跨平台通用）
 │   │   │   └── {platform}/            # 按平台分类 (web/android/ios/flutter)
 │   │   │       └── {ability}.md       # 平台实现细节
@@ -70,7 +70,7 @@ Layer 1: Claude Code Runtime — .claude/skills/ + CLAUDE.md
 **新用户检测**：当用户首次使用或描述从零开始的集成需求时，优先进入 `onboarding/SKILL.md` 引导流程。
 
 当用户提出 TRTC 相关问题时：
-1. **识别产品**：Chat / Call / RTC Engine / Live / Room
+1. **识别产品**：Chat / Call / RTC Engine / Live / Conference
 2. **识别平台**：Web / Android / iOS / Flutter / Electron
 3. **读取知识库**：先读产品级概览，再读平台实现细节
 4. **回答时引用来源**：标明参考的 slice ID 和官方文档链接
@@ -83,7 +83,7 @@ Layer 1: Claude Code Runtime — .claude/skills/ + CLAUDE.md
 | Call | `slices/call/` | 音视频通话（1v1/群组通话） |
 | RTC Engine | `slices/rtc-engine/` | 实时音视频引擎（进房/推流/拉流） |
 | Live | `slices/live/` | 直播（推流/拉流/连麦） |
-| Room | `slices/room/` | 房间管理（创建/销毁/成员管理） |
+| Conference | `slices/conference/` | 视频会议（多人视频、在线教育、远程医疗） |
 
 ## 支持的平台
 

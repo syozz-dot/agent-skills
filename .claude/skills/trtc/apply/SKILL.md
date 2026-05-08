@@ -138,7 +138,7 @@ response:
 
 读取用户的代码（或 AI 生成的代码），提取：
 
-- **Product**: Chat / Call / RTC Engine / Live / Room
+- **Product**: Chat / Call / RTC Engine / Live / Conference
 - **Platform**: Web / Android / iOS / Flutter / Electron
 - **Capabilities**: 触及了哪些原子能力（如 login, coguest-apply, publish-stream）
 

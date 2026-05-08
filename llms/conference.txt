@@ -4,6 +4,8 @@
 
 This index is the entry point for LLMs. It links to shared product-level docs and to one `llms.txt` per supported platform. Each linked page also has a `.md` twin (append `.md` to the URL) containing the raw markdown.
 
+## UIKit
+
 ## Product overview
 
 - [Conference Overview](https://trtc.io/document/conference-overview.md): What TUIRoomKit is, UIKit vs Core SDK, supported platforms.
@@ -48,3 +50,6 @@ Each platform has its own `llms.txt` with integration steps, features, and API r
 
 - [Privacy Policy](https://trtc.io/document/48827.md)
 - [Legal](https://trtc.io/document/61776.md)
+
+## Core SDK
+

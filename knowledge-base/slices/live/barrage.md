@@ -5,9 +5,6 @@ product: live
 tags: [barrage, message, chat, mute, BarrageStore, danmu]
 platforms: [ios, android, web, flutter]
 related: [live/audience-watch, live/audience-manage]
-docs:
-  - title: 弹幕集成指南
-    url: https://trtc.io/zh/document/74602
 ---
 
 # 弹幕

@@ -21,12 +21,12 @@ api_docs:                      # [必填] 该平台对应的 API 参考文档链
      - id: 与 index.yaml 中的 slice id 完全一致
      - platform: 当前平台标识
      - api_docs: 该功能在该平台的 API 参考文档链接（接口签名、参数类型、返回值等）。
-       与产品级 `docs` 互补：产品级 `docs` 放教程/指南页（"怎么用"），api_docs 放 API 参考页（"这个类的签名是什么"）。
+       产品级概览已不再放文档链接，教程/指南类 URL 也不放在 api_docs 里。
 
        ✅ 必须精确到类/模块级的 URL（如 CoGuestStore 的 API 页面）
        ✅ 涉及多个类时可有多条（如 CoGuestStore + DeviceStore 各一条）
        ❌ 不要填 SDK 首页（AI 拿不到校验所需的签名信息）
-       ❌ 不要填产品级教程页（那是产品级 docs 的职责）
+       ❌ 不要填产品级教程页
 
      其余元数据（name、tags、platforms、related）在产品级概览中维护，此处不重复。
 -->

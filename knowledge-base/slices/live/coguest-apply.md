@@ -5,9 +5,6 @@ product: live
 tags: [coguest, apply, seat, mic, CoGuestStore, connect]
 platforms: [ios, android, web, flutter]
 related: [live/coguest-invite, live/device-control, live/beauty, live/audience-watch]
-docs:
-  - title: 观众申请连麦
-    url: https://trtc.io/zh/document/74598
 ---
 
 # 观众申请连麦

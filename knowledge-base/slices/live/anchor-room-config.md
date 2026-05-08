@@ -5,9 +5,6 @@ product: live
 tags: [room, config, metadata, LiveListStore, room-name, cover]
 platforms: [ios, android, web, flutter]
 related: [live/anchor-preview, live/anchor-lifecycle]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 直播间配置

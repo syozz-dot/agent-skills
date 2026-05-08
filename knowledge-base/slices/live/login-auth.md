@@ -5,9 +5,6 @@ product: live
 tags: [login, auth, SDKAppID, UserID, UserSig, LoginStore]
 platforms: [ios, android, web, flutter]
 related: [live/device-control, live/anchor-preview, live/audience-watch]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 登录与鉴权

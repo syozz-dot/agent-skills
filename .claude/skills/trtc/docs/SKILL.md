@@ -1,21 +1,14 @@
 ---
 name: trtc-docs
 description: >
-  Answer TRTC fact, decision, and slice-lookup questions for users. Covers
-  two answer sources with a clear order of preference:
-  (1) For error codes, official patterns, and API comparisons (slice-lookup
-  intent from the root skill), call `search` first for slice content
-  (richer troubleshooting + ALWAYS/NEVER + code examples), fall back to
-  llms.txt only when no slice covers the topic.
-  (2) For pricing, quotas, capability limits, compliance, product
-  comparison, version migration (fact / decision / path-lookup intents),
-  go directly to llms.txt-indexed docs — slices do not carry this content.
-  Triggers on "how much does X cost", "does TRTC support Y", "X vs Y",
-  "error code N", "migrate from V3 to V4", "the correct way to use X",
-  "多少钱 / 收费 / 配额 / 支持 / 对比 / 迁移 / 错误码 / 正确用法".
-  Distinct from `onboarding` (hands-on code) and `search` (which this skill
-  uses internally for slice lookup). Every factual claim traces to either a
-  cited slice or a WebFetch'd trtc.io URL — never training-data synthesis.
+  Answers factual, conceptual, and decision-making questions about TRTC from
+  authoritative sources. Use when the user asks about pricing, quotas, error
+  codes, API usage, product comparisons, migration, or how something works
+  conceptually — in any phrasing (e.g. "how much does X cost", "多少钱",
+  "X vs Y", "对比", "error code 6206", "错误码", "does TRTC support Y",
+  "配额", "the correct way to use X", "X是什么", "how does X work",
+  "migrate from V3 to V4", "迁移"). Provides cited answers from knowledge-base
+  slices and official trtc.io documentation — never training-data synthesis.
 ---
 
 # TRTC Docs Lookup
@@ -30,8 +23,8 @@ Always respond in the same language as the user's message. If uncertain, default
 
 These are the reason this skill exists. Violating any of them defeats the purpose.
 
-- **G1 — No training-data facts.** Every factual claim in your reply must trace to content returned by a WebFetch call made in this turn. If you cannot fetch the relevant document, you cannot answer factually — say so.
-- **G2 — Attribution required.** Every answer includes at least one trtc.io URL. The URL must be one you actually fetched, not a guess.
+- **G1 — No training-data facts.** Every factual claim in your reply must trace to either (a) content from a cited knowledge-base slice read in this turn, or (b) content fetched from a trtc.io `.md` URL (e.g., `https://trtc.io/zh/document/60034.md`, NOT `https://trtc.io/zh/document/60034`) found via the llms.txt index in this turn. If you cannot provide either source, you cannot answer factually — say so.
+- **G2 — Attribution required.** Every answer includes at least one source citation: a slice ID (`📚 slice <id>`) and/or a trtc.io URL from the llms.txt index. Never cite a URL you didn't fetch or a slice you didn't read.
 - **G3 — Preserve ambiguity.** When multiple authoritative documents apply to the question (e.g., two pricing pages for two different scenarios), list all of them side by side. Do not collapse them into a unified summary that might misrepresent either. Do not pick for the user.
 - **G4 — No invented directories.** When locating a topic, only use `##` headings that actually exist in `llms/{product}.txt`. Do not infer a heading that "should" exist.
 
@@ -41,10 +34,10 @@ These are the reason this skill exists. Violating any of them defeats the purpos
 - `platform` — identified platform (`web` / `android` / `ios` / `flutter` / `electron`), or `null`. Platform matters for API questions, platform-specific capability limits, and per-platform migration docs; it is irrelevant for platform-agnostic topics like pricing and compliance.
 - `query` — the user's original question
 - `intent` — one of `fact-lookup` | `decision-lookup` | `path-lookup` | `slice-lookup`:
-  - `fact-lookup` — single-document question (pricing, limits, capability, error code meaning, version/env requirements, UserSig generation, console enablement — any "what is X / does it support Y / how much / where to enable"). Runs the default Step 1-5 flow.
+  - `fact-lookup` — single-document question (pricing, limits, capability, version/env requirements, UserSig generation, console enablement — any "what is X / does it support Y / how much / where to enable"). Runs the default Step 1-5 flow.
   - `decision-lookup` — comparison or selection question ("A vs B", "which product / group type fits my case", "Work vs Public vs Meeting vs AVChatRoom"). Forces multi-document side-by-side in Step 3 per G3.
   - `path-lookup` — migration, upgrade, or cross-version compatibility ("migrate from Agora to TRTC", "V3 to V4 SDK", "old SDK ↔ new SDK interop"). Step 1 prefers headings named `migration` / `upgrade` / `compatibility` / `迁移` / `升级` / `兼容` before general headings.
-  - `slice-lookup` — error-code lookup, official-pattern lookup, API-comparison lookup (B/C/D routes from root skill / onboarding). Slices carry richer, targeted content than docs for these: `error_codes` field has troubleshooting guides, slices carry ALWAYS/NEVER + code examples for patterns, slices have concrete API signatures. Runs the **Step 0 slice-first fallback chain** first; falls through to Step 1-5 only when search returns `no_match` / `no_slice` / `status: planned`.
+  - `slice-lookup` — error-code lookup, official-pattern lookup, API-comparison lookup, or implementation-method lookup ("怎么实现 X", "how to implement X"). Slices carry richer, targeted content than docs for these: `error_codes` field has troubleshooting guides, slices carry ALWAYS/NEVER + code examples for patterns, slices have concrete API signatures, and implementation slices have step-by-step integration instructions. Runs the **Step 0 slice-first fallback chain** first; falls through to Step 1-5 only when search returns `no_match` / `no_slice` / `status: planned`.
 
 These four are the only intent shapes that require different control flow in this skill. Topic-level distinctions (pricing vs limits vs usersig vs activation vs ...) do not live here — they are matched against `##` headings in `llms/{product}.txt` at Step 1, which stays in sync with the docs site automatically.
 
@@ -54,28 +47,45 @@ If `product` is `null` and cannot be inferred from the query, **ask the user whi
 
 ### Step 0 — Slice-first fallback (only when `intent = slice-lookup`)
 
-For B/C/D routes from the root skill / onboarding (error codes / official patterns / API comparisons), slices in `knowledge-base/` carry richer, more-targeted content than top-level docs:
+For error codes, official patterns, API comparisons, and implementation-method questions, slices in `knowledge-base/` carry richer, more-targeted content than top-level docs:
 - **Error codes** → `slice.error_codes` field has troubleshooting guides, not just error text
 - **Official patterns** → slices carry ALWAYS/NEVER rules + concrete code examples
 - **API comparisons** → slices have concrete signatures with scenario alignment
+- **Implementation methods** → slices have step-by-step integration instructions richer than doc-site overviews
 
 Flow:
 
-1. Call `search/SKILL.md` with (product, platform, query, intent=slice-lookup). search handles:
-   - S1 error-code exact match against `slice.error_codes`
-   - S2/S3/S4 slice discovery by id/tag/keyword
-   - F1 related-slice expansion
-   - F2 cross-product suggestion
-   - F3 no-match → returns a deferral signal
-2. **If search returns matched slices** with content:
-   - For **error codes**: quote the slice's `error_codes` section verbatim (exact code text, troubleshooting steps). Cite slice ID.
-   - For **official patterns**: quote the slice's ALWAYS/NEVER rules + the relevant code example block. Cite slice ID.
-   - For **API comparisons**: pull the API sections from the relevant slice(s). If two products/scenarios each have their own API (e.g., `chat/friend` vs `chat/presence`), lay them side by side (same G3 side-by-side principle as `decision-lookup`). Cite each slice ID.
-3. **If search returns `no_match` / `no_slice`**: fall through to Step 1 (llms.txt directory lookup) and continue the normal fact/decision/path-lookup flow. Tell the user in the reply: "这个错误码/模式 KB 里暂未收录具体内容，下面是官方文档的描述 (trtc.io/…)"
-4. **If search returns `status: planned`** (slice exists in index but content isn't written): mention the slice's index description, then fall through to Step 1-5 for llms.txt coverage.
-5. **If slice content is thin** (has platform-level overview but no `platform_file` for the user's platform): still fall through to Step 1-5 so that llms.txt fills platform-specific details; mention the slice as a supplement.
+1. Call `search/SKILL.md` with (product, platform, query, intent). This skill's own `intent=slice-lookup` (from the root skill) maps to one of search's accepted `intent` values based on query shape:
 
-Output under `slice-lookup` cites **both** sources where applicable: `📚 slice <id>` + any trtc.io URL fetched. G1-G4 still apply — every factual claim must trace to either a cited slice or a WebFetch'd URL, never training-data synthesis.
+   | docs intent | query shape | search intent to pass |
+   |-------------|-------------|-----------------------|
+   | `slice-lookup` | query contains a numeric error code | `error-code` |
+   | `slice-lookup` | query asks for official pattern, correct usage, or compares APIs (`X vs Y`, `the right way to X`) | `pattern` |
+   | `slice-lookup` | query asks how to implement/integrate a capability (`how to do X`, `怎么实现 X`) | `feature` |
+
+   > The **authoritative enum** for search's accepted `intent` values lives in `search/SKILL.md` → Inputs. If search adds/removes an `intent`, update this mapping table in lockstep. Never pass a value not listed in search's enum.
+
+   search runs a five-strategy chain internally (`exact` → `tag` → `product-keyword` → `cross-related` → `fuzzy`) and returns a `response` object with a typed `status` field. Read the fields; do NOT parse prose. The five statuses you must handle are: `matched`, `status_planned`, `no_slice`, `no_match`, `ambiguous_product`. See `search/SKILL.md` → "Response Contract" for the full schema.
+
+2. **If `response.status == 'matched'`** — read `response.matches[].file_paths_read` to ground your answer:
+   - For **error codes**: quote the slice's `## 错误码` / `## error_codes` section verbatim (exact code text, troubleshooting steps).
+   - For **official patterns**: quote the slice's ALWAYS/NEVER rules + the relevant code example block.
+   - For **API comparisons**: pull the API sections from the relevant slice(s). If two products/scenarios each have their own API (e.g., `chat/friend` vs `chat/presence`), lay them side by side (same G3 side-by-side principle as `decision-lookup`).
+   - For **implementation methods**: present the slice's step-by-step integration overview and key patterns. Then ask the user if they want to integrate this capability — if yes, route to `onboarding/SKILL.md` Path A2 with the identified slice as `target_features`.
+   - When `response.matches[0].confidence == 'high'`, trust the slice as the sole source and skip llms.txt. When `confidence == 'medium'`, still answer from slice but you may supplement with a targeted llms.txt fetch if the slice is thin. When `confidence == 'low'`, treat it as a weak signal — fall through to Step 1-5.
+
+3. **If `response.status == 'no_match'` or `'no_slice'`**: fall through to Step 1 (llms.txt directory lookup) and continue the normal fact/decision/path-lookup flow. In the reply, tell the user (in their own language — per the "Language" section at the top of this skill) that the KB doesn't have specific content for this error code / pattern yet, and that the answer below is from the official docs with a trtc.io URL.
+
+4. **If `response.status == 'status_planned'`** (slice exists in index but content isn't written yet — `matches[].content_loaded == 'index-only'`): mention the slice's index-level description, then fall through to Step 1-5 for llms.txt coverage.
+
+5. **If `response.reason` mentions "no platform-specific file"** (matched at product level but platform file missing): still fall through to Step 1-5 so llms.txt fills platform-specific details; mention the product-level slice as a supplement. Never synthesize platform-specific code.
+
+6. **If `response.status == 'ambiguous_product'`**: read `response.ambiguous_candidates` and ask the user which product they mean, offering each candidate as a concrete option. Do NOT pick silently. After the user picks, re-call search with the confirmed `product`.
+
+Output rules for `slice-lookup`:
+- **`response.status == 'matched'`** with `confidence ∈ {high, medium}` → answer from slice. No trtc.io URL required. Do NOT expose slice IDs to the user (they are internal).
+- **`response.status ∈ {no_match, no_slice, status_planned}`**, or `matched` with `confidence == 'low'` → fall through to Step 1-5. G2 applies: must include trtc.io URL.
+- **`response.status == 'ambiguous_product'`** → don't produce a substantive answer yet; ask the disambiguation question.
 
 ### Step 1 — Directory lookup
 
@@ -99,8 +109,8 @@ If no heading plausibly matches: go to Step 4 (Degradation). **Do not substitute
 ### Step 2 — Fetch on demand
 
 1. In the candidate heading(s) from Step 1, pick the link(s) whose one-line description best matches the query. When multiple look plausible, pick all of them — do not guess.
-2. Read `llms/{product}-{platform}.txt` whenever the question is platform-specific. Many fact questions are platform-agnostic (pricing, compliance, comparison), but **API-related questions, platform-specific capability limits, and per-platform migration docs all require the platform file**. If the user mentions a platform (iOS / Android / Web / Flutter / Electron) or pastes platform-specific code, always consult the platform file alongside the product file.
-3. For each selected trtc.io URL, run WebFetch to retrieve the document content.
+2. Read `llms/{product}/{platform}.txt` whenever the question is platform-specific. Many fact questions are platform-agnostic (pricing, compliance, comparison), but **API-related questions, platform-specific capability limits, and per-platform migration docs all require the platform file**. If the user mentions a platform (iOS / Android / Web / Flutter / Electron) or pastes platform-specific code, always consult the platform file alongside the product file. If `llms/{product}/{platform}.txt` does not exist, fall back to the product-level file (`llms/{product}.txt`) and tell the user this product has no platform-specific docs for that platform yet.
+3. For each selected trtc.io URL, fetch the `.md` version of the document (append `.md` to the URL if not already present, e.g., `https://trtc.io/zh/document/60034.md`). Do NOT fetch the HTML page without the `.md` suffix.
 
 **Do not read the top-level `llms.txt`** to answer fact questions. It is a product index, not a content source.
 

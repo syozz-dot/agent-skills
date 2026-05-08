@@ -5,9 +5,6 @@ product: live
 tags: [error, error-code, troubleshoot, debug]
 platforms: [ios, android, web, flutter]
 related: [live/login-auth, live/device-control, live/anchor-preview, live/audience-watch, live/coguest-apply]
-docs:
-  - title: 错误码
-    url: https://trtc.io/zh/document/60027
 ---
 
 # 错误码参考

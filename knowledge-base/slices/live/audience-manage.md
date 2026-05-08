@@ -5,9 +5,6 @@ product: live
 tags: [manage, kick, admin, administrator, LiveAudienceStore]
 platforms: [ios, android, web, flutter]
 related: [live/audience-list, live/barrage]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 观众管理

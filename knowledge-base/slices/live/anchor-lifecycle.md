@@ -5,9 +5,6 @@ product: live
 tags: [anchor, start, end, createLive, endLive, lifecycle]
 platforms: [ios, android, web, flutter]
 related: [live/anchor-room-config, live/anchor-preview, live/device-control]
-docs:
-  - title: 搭建视频直播
-    url: https://trtc.io/zh/document/74594
 ---
 
 # 主播开播与结束生命周期
