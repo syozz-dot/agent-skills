@@ -161,7 +161,7 @@ When answering:
 
 ## Sub-skills
 
-For more complex interactions, these sub-skills provide specialized workflows. You can mentally "switch into" their mode when the situation calls for it — read their SKILL.md for the detailed protocol:
+For more complex interactions, these sub-skills provide specialized workflows. You can mentally "switch into" their mode when the situation calls for it — read their SKILL.md for the detailed protocol :
 
 | Sub-skill | When to use | Path |
 |-----------|------------|------|
