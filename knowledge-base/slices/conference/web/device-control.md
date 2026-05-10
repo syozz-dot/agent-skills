@@ -52,6 +52,33 @@ await setCurrentCamera({ deviceId: 'camera_device_id' });
 await closeLocalCamera();
 ```
 
+### 会议推荐：用 `cameraStatus` 驱动摄像头开关按钮
+
+> ⚠️ 重要：`localParticipant.isCameraDisabled` 是管理员/会控禁用状态，**不**反映本地设备的实际开关。会中摄像头开关按钮状态必须来自 `cameraStatus`。
+
+```ts
+import { computed } from 'vue';
+import { useDeviceState, useRoomParticipantState, DeviceStatus } from 'tuikit-atomicx-vue3/room';
+
+const { cameraStatus, openLocalCamera, closeLocalCamera } = useDeviceState();
+
+// ✅ 正确：用 cameraStatus 反映本地设备实际开关状态
+const isCameraOff = computed(() => cameraStatus.value !== DeviceStatus.On);
+
+// ❌ 错误示例（切勿使用）：
+// const { localParticipant } = useRoomParticipantState();
+// const isCameraOff = computed(() => Boolean(localParticipant.value?.isCameraDisabled));
+// → isCameraDisabled 是管理员远程禁用标志，不跟随 openLocalCamera/closeLocalCamera 更新
+
+export async function toggleCamera() {
+  if (isCameraOff.value) {
+    await openLocalCamera();   // 重新开启摄像头采集
+  } else {
+    await closeLocalCamera();  // 停止摄像头采集（离场时也应调用）
+  }
+}
+```
+
 ### 会议推荐：进房后先静音，再建立麦克风采集
 
 ```ts

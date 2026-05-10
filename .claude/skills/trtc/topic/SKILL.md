@@ -66,30 +66,214 @@ For each step in the scenario:
    - **G5: Compilable by default** — Generated code must be compilable when added to a project with the correct SDK installed. Include all necessary imports, type declarations, and protocol conformances. If something can't compile without additional context, note it with a `// TODO:` comment explaining what's needed.
 
 4. **Highlight the gotchas** — surface the ALWAYS/NEVER rules that apply to this step. Frame them as "the common mistakes I've seen" rather than abstract rules.
-5. **Pause and check in** — ask the user if this step is clear, if they've implemented it, or if they have questions. Don't rush ahead.
+5. **Auto-advance or pause** — follow the **Step 3 progression rules** below to decide whether to immediately continue to the next step or pause for user input.
 
-### Step 3.5: Apply `ui_mode` to code generation (conference only)
+### Step 3 progression rules
 
-When `.trtc-session.yaml` has `product = conference` and `ui_mode` is set, the
-code-generation strategy branches. Read this state ONCE at skill entry and cache
-it for the whole session.
+After each step's apply check completes, use the following rules to decide whether to auto-advance or pause:
+
+| apply result | Action |
+|---|---|
+| `pass` | **Auto-advance.** Do NOT pause or ask the user. Immediately proceed to the next slice in the scenario sequence. Output the step's **Apply Evidence Block** (see below) and continue generating the next step's code in the same response. |
+| `partial` (only `warning`/`info` severity) | **Auto-advance with note.** Same as `pass`, but append warnings after the evidence block. Continue to the next step. |
+| `partial` (any `critical` severity) | **Pause.** Show the critical warnings and ask the user how to proceed (fix / skip / pause). |
+| `fail` | **Pause.** Follow the retry rules in "Calling apply". If retry also fails (give-up), pause and inform the user. |
+
+**Apply Evidence Block (MANDATORY for every step — no exceptions, even with auto-advance):**
+
+Every step that passes apply MUST include the following visible block in the response. This is NOT optional. A step without this block is NOT completed, regardless of what the AI claims.
+
+```
+### Step {n}: {slice_name} ✅
+
+**P1 Imports:** `{actual grep command executed}` → {result}
+**P3 API check:** `{actual grep command executed}` → {result}
+**P4 MUST rules:** {count} checked, {count} passed
+**Compile:** `{actual compile command}` → exit {code}
+```
+
+**What each line requires (minimum viable evidence):**
+
+| Line | What must actually happen | Fake = violation |
+|---|---|---|
+| P1 Imports | Execute `grep` or `ls` against `node_modules/` to confirm the import path resolves | Saying "import path is correct" without a command |
+| P3 API check | Execute `grep` against SDK `.d.ts` or slice file to confirm at least the primary API exists (e.g. `useLoginState`) | Saying "API exists" from memory |
+| P4 MUST rules | Read the slice's MUST rules, then `grep` the generated file for each required pattern; report count | Saying "all MUST rules satisfied" without grep |
+| Compile | Execute the actual build command (`npx webpack --mode production` or equivalent) and show exit code | Not running the command |
+
+**Minimum execution standard:**
+- P1: At least 1 actual `grep` or `ls` command against `node_modules/` executed via Bash tool
+- P3: At least 1 actual `grep` command against `.d.ts` or slice file executed via Bash tool
+- P4: At least 1 actual `grep` command against the generated code file executed via Bash tool, checking for a pattern from the slice's MUST rules
+- Compile: Actual `webpack` or `tsc` command executed via Bash tool
+
+**If any Bash command cannot be executed** (no node_modules, no project): mark the line as `⚠️ NOT VERIFIED` instead of ✅. Never fake a ✅.
+
+**Why this matters:** The Apply Evidence Block is the only proof that verification actually happened. Without executed commands and real output, "apply pass" is meaningless text. The user cannot distinguish real verification from hallucinated verification unless they see actual command → output pairs.
+
+**Batch output for consecutive passes:** When multiple steps pass in sequence, each step still outputs its own Apply Evidence Block. They may appear consecutively in one response, but none may be omitted.
+
+**Completion summary:** After all steps have auto-advanced through `pass`, present a single final summary table showing all steps, their apply status, and the overall compile result. This replaces the per-step "What would you like to do next?" menu.
+
+**Override:** If the user explicitly asks to go step-by-step ("一步一步来", "pause between steps", "let me review each step"), respect that preference and pause after each `pass`. Otherwise, auto-advance is the default.
+
+### Step 3.5: Apply `ui_mode` to code generation
+
+When `.trtc-session.yaml` has `ui_mode` set (any product), the code-generation
+strategy branches. Read this state ONCE at skill entry and cache it for the
+whole session. This section applies to **any product** that has a reference HTML
+and composable-bindings mapping — it is not limited to Conference.
 
 **At skill entry, if `ui_mode = full-ui`, load these three files as spec input:**
 
 1. `.claude/skills/trtc/room-builder/references/scenario-mapping.md` — maps the
-   current scenario to a Standard scene and a reference HTML file
+   current scenario to a scene and a reference HTML file
 2. `.claude/skills/trtc/room-builder/references/composable-bindings.md` — maps
-   UIKit class names to AtomicXCore composables and reactive Vue bindings
+   UIKit class names to composables and reactive Vue bindings
 3. The reference HTML file named in scenario-mapping.md — used as visual spec
    (structure, class names, slot layout)
+
+**If any of these files does not exist or has no entry for the current product/scenario:** degrade to `ui_mode = null` behavior for this run and warn the user (in their language): "I don't have a UI template for this scenario yet — I'll generate business code and you can apply your own UI layer."
+
+**Pre-generation: UI-region-to-slice binding audit (MANDATORY for `full-ui`)**
+
+Before writing any code, perform this binding audit:
+
+1. **Enumerate UI regions** in the reference HTML: for each major structural
+   section (stage, toolbar, side-panel content areas, chat, participant list,
+   etc.), record its root class name.
+2. **Cross-reference against the scenario's slice list**: for each UI region,
+   check whether a corresponding slice exists in the scenario's `slices` array
+   (read from `knowledge-base/{scenario.file}`). A "corresponding slice" is one
+   whose capability domain maps to that UI region (e.g. `{product}/room-chat`
+   covers `.ui-chat-list` and `.ui-chat-input`).
+3. **Binding decision per region:**
+
+   | Scenario slice present? | composable-bindings.md entry? | Action |
+   |---|---|---|
+   | Yes | Yes | **MUST fully implement** — wire composables per bindings.md; stub placeholder is NOT acceptable |
+   | Yes | No | **Block — update composable-bindings.md first**, then implement |
+   | No | — | Omit UI region entirely (do not produce a non-functional placeholder) |
+
+4. **Record the audit result** as an inline comment at the top of the generated
+   SFC, listing which slices were bound and which regions were omitted.
+
+This audit is the fix for the class of bug where a UI region from the reference
+HTML (e.g. the chat panel) is present in the visual spec but left as a stub
+because no composable mapping was found. If the audit finds a missing binding,
+update `composable-bindings.md` before proceeding — do not silently omit or stub.
 
 **Generation rules by mode:**
 
 | `ui_mode` | Output shape | Strategy |
 |---|---|---|
-| `full-ui` | Vue SFC (template + script + style) | Mirror the reference HTML structure in `<template>`. Class names MUST come from `uikit/references/component-catalog.md` — do NOT invent new class names. Replace static state classes (`.is-off`, `.is-open`) with reactive `:class` bindings per composable-bindings.md. Wire buttons with `@click` and lists with `v-for` against the mapped composables. In `<style>`, import `uikit/assets/themes/meeting-classic/` tokens and component CSS. |
+| `full-ui` | Vue SFC (template + script + style) | Run the UI-region-to-slice binding audit above first. Then mirror the reference HTML structure in `<template>`. Class names MUST come from the reference HTML or `uikit/references/component-catalog.md` — do NOT invent new class names. Replace static state classes (`.is-off`, `.is-open`) with reactive `:class` bindings per composable-bindings.md. Wire buttons with `@click` and lists with `v-for` against the mapped composables. In `<style>`, import the theme tokens and component CSS from the path specified in scenario-mapping.md. |
 | `headless` | Composables + stores + types + README | Generate `src/trtc/composables/*.ts`, `src/trtc/types/index.ts`, and a top-level `README.md`. Do NOT generate any `.vue` files. Do NOT generate example components. The README documents each composable's return signature with a 3-line usage snippet. |
 | `null` or unset | Topic's default strategy | Fall back to the per-slice code-example approach (pre-ui_mode behavior). Unchanged. |
+
+**Full-UI self-check (MANDATORY — run before writing any `.vue` file when `ui_mode = full-ui`):**
+
+**⚠️ EXECUTION PROTOCOL — this is NOT a mental check, it is a mandatory output step:**
+
+1. **Before calling Write/Edit on any `.vue` file**, you MUST first output a **UI Audit Table** in your response. This table is visible to the user and serves as proof that the check was executed.
+2. The table compares each region of your generated code against the reference HTML.
+3. **If all rows pass** → proceed to Write the file immediately (no user confirmation needed).
+4. **If any row fails** → STOP. Do NOT write the file. Discard the draft, re-read the reference HTML, and regenerate. Then output a new audit table.
+
+**UI Audit Table format (must appear in your response before any Write call):**
+
+```
+## UI Audit — {filename}
+| Region | Reference HTML class | Generated class | Status |
+|--------|---------------------|-----------------|--------|
+| Top bar | .ui-topbar | .ui-topbar | ✅ |
+| Stage | .ui-stage | .ui-stage | ✅ |
+| Bottom bar | .ui-bottombar | .ui-bottombar | ✅ |
+| Side panel | .ui-side-panel | .ui-side-panel | ✅ |
+| ... | ... | ... | ... |
+
+Style imports: ✅ tokens.css + layout.css + component CSS
+State classes reactive: ✅ all .is-* use :class bindings
+```
+
+**Audit checks:**
+
+| # | Check | Fail condition |
+|---|---|---|
+| U1 | Template structure mirrors reference HTML regions | Generated `<template>` does NOT contain the same top-level structural sections as the reference HTML (check by comparing top-level class names in both) |
+| U2 | Class names come from reference HTML / component-catalog | Any class in `<template>` that is NOT present in the reference HTML or `component-catalog.md` — i.e. you invented a new class name |
+| U3 | `<style>` imports theme tokens + component CSS | No `@import` or equivalent link to the theme CSS path specified in scenario-mapping.md |
+| U4 | State classes are reactive | Any `.is-off`, `.is-open`, `.is-active` appears as a static class instead of `:class` binding |
+| U5 | No invented structural markup | Core layout is achieved through custom HTML/CSS instead of reusing reference HTML structure |
+
+**Why this works as a hard gate:** The audit table is a visible artifact in the response. If you skip it, the absence is obvious — both to the user and to yourself on re-read. It forces you to actually compare class names before writing, rather than relying on a "mental note" that gets bypassed under generation pressure.
+
+**What "mirror" means concretely:**
+- Copy the reference HTML's DOM hierarchy for each region (topbar, stage, bottombar, side-panel).
+- Keep the original class names, slot structure, and nesting depth.
+- Replace hardcoded data (names, avatars, messages) with `v-for` / `{{ }}` bindings.
+- Replace static state classes with `:class` bindings per composable-bindings.md.
+- Add `@click` handlers per composable-bindings.md.
+- Do NOT restructure the HTML to "look simpler" or "be more readable" — the reference HTML IS the spec.
+
+**If the reference HTML is too large for a single SFC:** split into multiple child components by region (e.g. `TopBar.vue`, `BottomBar.vue`, `SidePanel.vue`), but each child component still mirrors the corresponding section of the reference HTML with original class names intact.
+
+**Apply gate — MANDATORY for `full-ui` (same weight as G3, not optional):**
+
+After generating the complete SFC — **before writing any file to disk** — call
+`apply/SKILL.md`. `full-ui` mode generates composite code covering multiple
+slices at once; construct the apply request as follows:
+
+```yaml
+request:
+  code:
+    - path: {relative path, e.g. src/views/MeetingRoom.vue}
+      content: {the full generated SFC}
+
+  product:    {product from session, e.g. conference / live / call}
+  platform:   {user's platform}
+  capability: {first slice in the scenario sequence, e.g. "{product}/room-lifecycle"}
+
+  related_capabilities:
+    # list ALL other slices whose rules must be checked in this SFC:
+    # (pull from the scenario's slice sequence in knowledge-base/{scenario.file})
+    - {product}/login-auth
+    - {product}/device-control
+    - {product}/participant-list
+    - {product}/room-chat
+    # ... include every slice from the scenario's slice sequence
+
+  project_context:
+    root:              {absolute path if scanning available}
+    modified_files:    [{generated SFC path}]
+    has_existing_tests: false
+
+  mode: full        # if project_context.root is set
+        # static-only  # if no project root available
+```
+
+`related_capabilities` is how apply handles multi-slice composite code — it
+runs Phase 2 constraint checks for every listed slice, not just `capability`.
+This covers the full MUST/MUST NOT surface of a `full-ui` SFC.
+
+**On apply response:**
+- `pass` → write the file; continue normally.
+- `partial` (only `warning`/`info`) → write the file; note warnings inline.
+- `fail` → **do NOT write the file**. Follow the retry rules in "Calling apply"
+  (max 2 attempts). If give-up: surface "I hit a snag generating the SFC" to
+  the user; offer to regenerate or pause.
+
+**If apply is skipped for ANY reason** (context overflow, tool unavailability,
+missing project root when `mode: full` was required): the generated SFC MUST
+include the following comment at the very top of `<script setup>` before being
+written, and the step summary MUST include `⚠️ 编译未验证 — apply 未执行，请手动编译确认`:
+
+```ts
+// ⚠️ APPLY VERIFICATION SKIPPED — compile and verify manually before shipping
+```
+
+Never declare the full-ui SFC step done without either (a) apply `pass`/`partial`
+evidence, or (b) the skip-disclosure comment visibly in the file.
 
 **Internal asset policy:** `scenario-mapping.md` and `composable-bindings.md`
 are read-only references. Topic does not write to room-builder. The user never

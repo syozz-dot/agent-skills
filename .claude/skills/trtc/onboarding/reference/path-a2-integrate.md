@@ -72,6 +72,11 @@ After apply returns, read the structured `response` and branch as follows:
 - Never tell the user "I'm calling apply" or "apply said X". apply is silent infrastructure.
 - Never show raw `request` / `response` yaml to the user. Translate to the step report template.
 - Never skip apply to "move faster". Compile evidence is the only acceptable proof that a step is done.
+- **If apply is skipped for any reason** (e.g. context overflow, tool unavailability): the generated file MUST include the following comment at the very top, and the step summary shown to the user MUST include `⚠️ 编译未验证 — apply 未执行，请手动编译确认`. Never declare a step done without this disclosure when apply was not run.
+
+```ts
+// ⚠️ APPLY VERIFICATION SKIPPED — compile and verify manually before shipping
+```
 
 > **Slice discovery vs. slice loading in this path:**
 >
@@ -184,7 +189,7 @@ Reuse A1-Q1 format (see `reference/path-a1-demo.md`). Skip entirely if `credenti
 
 **Important**: the actual SDKAppID / SecretKey values are **never** written to `.trtc-session.yaml`. After the user pastes them, hold them in conversation context only. Update the session file's `credentials.sdk_app_id_provided` / `credentials.secret_key_provided` booleans to `true` — and persist those booleans as part of the next Checkpoint write (do not trigger an extra Write just for credentials).
 
-## A2-Q3 — Per-step confirmation
+## A2-Q3 — Per-step progression
 
 After writing code for each step, call `apply/SKILL.md` as described in **"Calling apply"** above. Only report the step done after `response.status` is `pass` (or `partial` with no `critical` severity issues). Summarize the outcome to the user using this template:
 
@@ -203,6 +208,23 @@ Compile check: passed — `{compile_command}` exit 0.
 **First Write of the session** (i.e. right after Stage 1 calibration confirmed, before this step executes): create the file with `status: active`, all inferred fields filled, and trigger the `.gitignore` auto-update flow described in `SKILL.md` § Session context.
 
 If apply returns `fail`, do NOT write this summary **and do NOT advance `current_step` in the session file**. Follow the retry rules in **"Calling apply → Acting on retry_hint"** (max 2 apply calls per step). If the step ultimately gives up, surface a message framed as "I hit a snag on step {n}" — never "apply skill said X" — and list what was tried.
+
+### Auto-advance rules (default behavior)
+
+| apply result | Action |
+|---|---|
+| `pass` | **Auto-advance.** Do NOT pause or show a question menu. Immediately proceed to the next slice. Output a one-line step summary and continue generating the next step in the same response. |
+| `partial` (only `warning`/`info`) | **Auto-advance with note.** Same as `pass`, but append a collapsed line noting warnings. Continue. |
+| `partial` (any `critical`) | **Pause.** Show the critical warnings and ask the user how to proceed. |
+| `fail` (after retry exhausted / give-up) | **Pause.** Inform the user and offer options (skip / pause / provide context). |
+
+**Batch output:** When consecutive steps all pass, combine their summaries into a single response. The user sees progress flowing without interruption.
+
+**Completion:** After all planned steps pass, present a final summary table. Do NOT show the per-step question menu below — it only activates when the user explicitly requests step-by-step mode.
+
+**Step-by-step override:** If the user explicitly says "一步一步来" / "pause between steps" / "let me review each step", switch to per-step confirmation mode and show the question menu below after each step. Otherwise, auto-advance is the default.
+
+### Per-step question menu (only when step-by-step mode is active)
 
 Question text: "What would you like to do next?"
 

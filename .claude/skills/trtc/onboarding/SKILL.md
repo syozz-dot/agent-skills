@@ -439,3 +439,24 @@ These rules are checked **on every turn**, regardless of which stage or path you
 5. **One known field per turn.** Never re-ask for information the user has already provided (product, platform, intent, scenario, project_state). Check `.trtc-session.yaml` first.
 
 6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `docs` skill rather than paraphrasing slices yourself. The `docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
+
+7. **Scenario handoff 是不可跳过的阻塞门。** 当 `intent = integrate-scenario` 且 A2-Q0 已选定具体 scenario 时：
+
+   - MUST 加载 `topic/SKILL.md` 并将执行权完整交给 topic。
+   - MUST NOT 在 onboarding 内直接生成任何业务代码文件（.vue / .ts / .swift / .kt / .dart 等）。
+   - MUST NOT 一次性输出完整项目代码——逐步执行、逐步 apply 是 topic 的核心设计，不可绕过。
+   - MUST 在 handoff 前将 `current_step = 'topic-handoff'` 和 `scenario = <chosen-id>` 写入 `.trtc-session.yaml`。
+
+   **Self-check 信号（每次准备写文件前执行）：**
+   如果你的下一个动作是 Write / Edit 一个业务代码文件，而以下任一条件为真——你正在违规，立即 STOP：
+   - `.trtc-session.yaml` 中 `current_step` 不是 `'topic-handoff'` 且 topic 从未被加载
+   - `intent = integrate-scenario` 但你仍在 onboarding skill 内执行
+   - 你正在一次性生成超过 1 个 slice 对应的代码（topic 是逐步的）
+
+   **违规时的强制动作：**
+   1. STOP 当前生成
+   2. 不输出已生成的代码
+   3. 回到 handoff 点，加载 `topic/SKILL.md`，按 topic 流程逐步执行
+   4. 不向用户解释内部流程细节——只需自然地开始 topic 的 Step 1/2/3
+
+   **唯一豁免：** `intent = integrate-feature`（单功能集成）不走 topic，仍在 onboarding A2 内逐步执行并调用 apply。此规则仅约束 scenario-driven 流程。

@@ -16,6 +16,30 @@ description: >
 
 You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communication) SDKs. TRTC covers five products — **Chat**, **Call**, **RTC Engine**, **Live**, and **Conference** — each with platform-specific implementations for Web, Android, iOS, Flutter, and Electron.
 
+## ⚠️ MANDATORY GATE — Execute BEFORE any other action
+
+**This gate is non-negotiable. You MUST complete steps 1–3 below before reading any file under `knowledge-base/`, `slices/`, or `scenarios/`. Violation = broken flow.**
+
+1. **Read `.trtc-session.yaml`** — if it exists and `status = active/paused`, route to `onboarding/SKILL.md` immediately. STOP here.
+2. **Check onboarding triggers** — does the user's message match ANY row below?
+
+   | 触发动词 | 示例 |
+   |----------|------|
+   | 搭建 / 构建 / 做 / 创建 / build / create / set up | "帮我搭建一个视频会议应用" |
+   | 集成 / 接入 / integrate / add / implement | "集成屏幕共享功能" |
+   | 从零 / from scratch / get started / new project | "从零开始做一个…" |
+   | 加 / 实现 / wire up / help me with | "加一个礼物功能" |
+   | demo / 跑一下 / try / run | "跑一下官方 demo" |
+   | 报错 / error / crash / not working / 黑屏 | "进房报错 6206" |
+
+   If ANY trigger matches → route to `onboarding/SKILL.md`. STOP here.
+
+3. **Only after both checks return "no match"** may you proceed to `## How to handle a TRTC question` Step 1 (Identify the product).
+
+> **Self-check**: If you are about to call `Read` on `knowledge-base/index.yaml` or any slice/scenario file, ask yourself: "Did I complete the MANDATORY GATE?" If the answer is no — STOP and go back to step 1.
+
+---
+
 ## Language
 
 Always respond in the same language as the user's message. If uncertain, default to English. When referencing knowledge base content written in Chinese, translate to the user's language. Keep code identifiers, API names, and error codes in their original form.
@@ -170,3 +194,17 @@ For more complex interactions, these sub-skills provide specialized workflows. Y
 | **topic** | User wants step-by-step guidance through a complete scenario | `topic/SKILL.md` |
 | **search** _(internal only)_ | AI-facing slice lookup called by `onboarding` and `docs`. Never routed to by user intent directly. | `search/SKILL.md` |
 | **apply** _(internal only)_ | Silent compile + integration gate that onboarding/topic flows run on AI-generated code. Never routed to directly by user intent. | `apply/SKILL.md` |
+
+---
+
+## Hard rules (override everything above)
+
+These rules are checked on **every turn**. If anything above conflicts with a rule here, the hard rule wins.
+
+1. **No premature knowledge loading.** You MUST NOT read any file under `knowledge-base/`, `slices/`, or `scenarios/` until the MANDATORY GATE (top of this file) is fully satisfied AND routing (Steps 0–3) is complete AND the target sub-skill has been determined. If you catch yourself loading `index.yaml` before confirming the routing destination — **STOP, discard what you loaded, go back to the MANDATORY GATE.**
+
+2. **Onboarding-first for all build/integrate intent.** Any user message containing 搭建/构建/做/创建/集成/接入/加/实现/build/create/integrate/add/implement + a product/feature noun MUST route to `onboarding/SKILL.md` before any content is loaded or code is generated. No exceptions.
+
+3. **Root skill does not answer — it routes.** This skill's job is: (a) detect session state, (b) identify product + platform + intent, (c) delegate to the correct sub-skill. It must NEVER generate integration code, dump slice content, or walk through scenario steps by itself.
+
+4. **Self-audit before every reply.** Before sending your response, check: "Did I go through the MANDATORY GATE? Did I delegate to the correct sub-skill? Am I dumping raw slice/scenario content?" If any answer is "yes, I violated" — discard the draft and restart from the GATE.

@@ -14,9 +14,73 @@
 
 | UIKit class pattern | Composable | Vue binding example |
 |---|---|---|
-| `.ui-icon-button.is-off` (mic) | `useDeviceState()` | `:class="{ 'is-off': isMicOff }" @click="toggleMic"` |
+| `.ui-icon-button.is-off` (mic) | `useDeviceState()` + `useRoomParticipantState()` | `:class="{ 'is-off': isMicOff }" @click="toggleMic"` |
 | `.ui-icon-button.is-off` (camera) | `useDeviceState()` | `:class="{ 'is-off': isCameraOff }" @click="toggleCamera"` |
 | `.ui-icon-button` (screen share) | `useDeviceState()` | `:class="{ 'is-active': isScreenSharing }" @click="toggleScreenShare"` |
+
+**MUST rules for device controls:**
+
+**Camera** — state source MUST be `cameraStatus` from `useDeviceState()`, NOT `localParticipant.isCameraDisabled`:
+```ts
+import { useDeviceState, DeviceStatus } from 'tuikit-atomicx-vue3/room';
+const { cameraStatus, openLocalCamera, closeLocalCamera } = useDeviceState();
+
+// ✅ Correct: physical device state
+const isCameraOff = computed(() => cameraStatus.value !== DeviceStatus.On);
+
+async function toggleCamera() {
+  if (isCameraOff.value) {
+    await openLocalCamera();
+  } else {
+    await closeLocalCamera();
+  }
+}
+```
+> ⚠️ `localParticipant.isCameraDisabled` is an admin-level moderation flag — it does NOT update when `openLocalCamera()`/`closeLocalCamera()` is called. Using it as the camera button state source causes the button to always appear "on" after `closeLocalCamera()`, making it impossible to reopen the camera.
+
+**Screen Share** — `isScreenSharing` MUST be derived from `screenStatus`; toggle MUST call `startScreenShare`/`stopScreenShare`:
+```ts
+import { useDeviceState, DeviceStatus } from 'tuikit-atomicx-vue3/room';
+const { screenStatus, startScreenShare, stopScreenShare } = useDeviceState();
+
+const isScreenSharing = computed(() => screenStatus.value === DeviceStatus.On);
+
+async function toggleScreenShare() {
+  if (isScreenSharing.value) {
+    await stopScreenShare();
+  } else {
+    await startScreenShare();
+  }
+}
+```
+> ⚠️ `startScreenShare()` / `stopScreenShare()` MUST both be destructured and called — the screen share button MUST NOT be left as a static placeholder or with only one direction wired.
+
+**Mic** — the mic toggle MUST use `muteMicrophone`/`unmuteMicrophone` from `useRoomParticipantState()` for in-meeting mute/unmute (not `closeLocalMicrophone`/`openLocalMicrophone`). `isMicOff` should be tracked via a local `ref(true)` initialized on join:
+```ts
+import { useDeviceState } from 'tuikit-atomicx-vue3/room';
+import { useRoomParticipantState } from 'tuikit-atomicx-vue3/room';
+const { openLocalMicrophone } = useDeviceState();
+const { muteMicrophone, unmuteMicrophone } = useRoomParticipantState();
+
+const isMicOff = ref(true);
+
+// On room join: pre-mute then start capture
+async function prepareMic() {
+  await muteMicrophone();
+  await openLocalMicrophone();
+  isMicOff.value = true;
+}
+
+async function toggleMic() {
+  if (isMicOff.value) {
+    await unmuteMicrophone();
+    isMicOff.value = false;
+  } else {
+    await muteMicrophone();
+    isMicOff.value = true;
+  }
+}
+```
 
 ## Room state
 
@@ -57,6 +121,33 @@
    `uikit/references/token-contract.md` (`background-image`, `--level`,
    `--stage-off-avatar`)
 
+## Chat
+
+> Import path: `tuikit-atomicx-vue3/chat`
+> Required: call `setActiveConversation(`GROUP${roomId}`)` immediately after
+> `roomId` is available — MUST include the `GROUP` prefix.
+
+| UIKit class pattern | Composable | Vue binding example |
+|---|---|---|
+| `.ui-chat-list` (message scroll container) | `useMessageListState()` | `v-for="msg in messageList" :key="msg.ID"` |
+| `.ui-chat-message` (each message row) | `useMessageListState()` | `v-for="msg in messageList" :key="msg.ID"` |
+| `.ui-chat-message--me` (self message variant) | `useMessageListState()` + local userId | `:class="['ui-chat-message', { 'ui-chat-message--me': msg.from === selfUserId }]"` |
+| `.ui-chat-message__meta` (sender + time) | `useMessageListState()` | `{{ msg.nick || msg.from }} {{ formatTime(msg.clientTime) }}` |
+| `.ui-chat-message__bubble` (message text) | `useMessageListState()` | `{{ msg.payload?.text }}` |
+| `.ui-chat-input__textarea` | `useMessageInputState()` | `:value="inputRawValue" @input="(e) => updateRawValue((e.target as HTMLTextAreaElement).value)"` |
+| `.ui-btn--send` | `useMessageInputState()` | `@click="handleSend" :disabled="isMessageDisabled || !inputRawValue?.trim()"` |
+| Conversation binding (on roomId change) | `useConversationListState()` | `watch(() => currentRoom.value?.roomId, id => { if (id) setActiveConversation(`GROUP${id}`); }, { immediate: true })` |
+
+**MUST rules for chat region:**
+- Always use `GROUP` prefix when calling `setActiveConversation`
+- Always call `updateRawValue('')` after a successful `sendMessage()`
+- Guard send with `isMessageDisabled` check before `sendMessage()`
+- The `.ui-chat-list` container must have a stable height (`flex: 1; overflow-y: auto`) so the stage layout does not shift when messages arrive
+
+**MUST NOT:**
+- Never pass bare `roomId` without the `GROUP` prefix to `setActiveConversation`
+- Never use a rich-text editor API for the plain textarea input — use `updateRawValue` only
+
 ## Fallback when a composable is absent from the scenario
 
 If the scenario's slice list does not cover a given composable (e.g.
@@ -64,3 +155,10 @@ If the scenario's slice list does not cover a given composable (e.g.
 UI region, or (b) keeps a static placeholder. Topic chooses based on whether
 the region is structurally essential (toolbar / stage → keep placeholder;
 side-panel tab → omit).
+
+**Exception — Chat region:** the `.ui-chat-list` / `.ui-chat-input` region
+is always treated as structurally essential for Conference scenarios. If
+`conference/room-chat` is present in the scenario's slice list, it MUST be
+fully implemented — a stub placeholder is not acceptable. If the slice is
+genuinely absent from the scenario's slice list, omit the chat tab entirely
+rather than producing a non-functional placeholder.

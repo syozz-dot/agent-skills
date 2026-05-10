@@ -28,6 +28,32 @@ description: >
 
 ---
 
+## ⛔ 阻塞门禁声明（Mandatory Execution Contract）
+
+**apply 是代码交付流程的强制阻塞门。没有 apply 响应，代码步骤不能被宣告完成。**
+
+| 场景 | apply 是否必须执行 | 最低要求模式 |
+|------|-----------------|------------|
+| 首次写入一段代码（完整 slice 实现） | ✅ 必须 | `mode: full` |
+| 小片段修改（< 50 行） | ✅ 必须 | `mode: quick` |
+| 没有项目环境（无法编译） | ✅ 必须 | `mode: static-only`（Phase 0.5 + Phase 2 仍要完整跑） |
+| 用户要求"快一点，跳过检查" | ❌ 不允许 | 上游必须拒绝，说明"编译证据是步骤完成的唯一证明" |
+
+**步骤完成的唯一合法证明**（上游 skill 必须能向用户提供以下之一）：
+
+1. **有项目环境**：`response.compile_check.status = pass` + 实际编译命令 + `exit_code: 0`
+2. **无项目环境（static-only）**：`response.preflight.status = pass`（5-point checklist 全通过）+ `response.constraint_check.status = pass` + 显式标注 `⚠️ 编译未验证`
+
+以上两项均不满足 → 步骤**未完成**，上游 skill 不得向用户展示步骤完成摘要，不得推进 `current_step`。
+
+**如果上游跳过了 apply 调用**（违反本契约），交付的代码文件顶部必须加入以下标记，不得省略：
+
+```ts
+// ⚠️ APPLY VERIFICATION SKIPPED — compile and verify manually before shipping
+```
+
+---
+
 ## Phase 0: 调用接口契约
 
 本 skill 被上游 skill（onboarding / topic）**以结构化输入调用，以结构化输出返回**。上游和 apply 通过这份契约解耦：上游不必关心 apply 内部怎么跑，apply 也不必回过头猜上游的上下文。
@@ -61,8 +87,8 @@ request:
 
 **约束**：
 - 缺 `product` / `platform` / `capability` 其一 → apply 返回 `status: fail` + `retry_hint.strategy: missing-field`，不做任何检查；`constraint_check / compile_check / integration_check` 全部标 `skipped`，`retry_hint.focus_on` 列出缺失字段名（如 `["capability"]`）。这不是代码质量问题，是上游调用契约违例，上游收到后应当**不做 retry、直接按 bug 上报**。
-- `capability` 对应 slice 不存在或 `status = planned` → apply 返回 `warning: slice_not_available`，降级为仅跑 Phase 3（若可编译）+ 5-point checklist
-- 没有 `project_context.root` → apply 自动降级为 `static-only`，不尝试执行 Phase 3 / Phase 4
+- `capability` 对应 slice 不存在或 `status = planned` → apply 返回 `warning: slice_not_available`，降级为仅跑 Phase 3（若可编译）+ Phase 0.5 checklist
+- 没有 `project_context.root` → apply 自动降级为 `static-only`，**Phase 0.5 + Phase 2 仍然完整执行**，仅跳过 Phase 3 / Phase 4；输出里显式标注 `⚠️ 编译未验证`
 
 ### 输出契约（apply → 上游）
 
@@ -129,6 +155,41 @@ response:
 - apply **不修复代码之后替上游交付给用户**。编译失败时，apply 只给 `retry_hint` 让上游重新生成；除非 `mode = full` 并且问题是非常局部的单点修复（详见 Phase 3.2 的"有限自愈"条款），apply 不擅自改代码。
 - apply **任何返回都会附证据**。所有 `pass/fail` 都对应一条 `evidence`（命令+输出 或 规则+判定）。不带证据的结论不会出现在输出里。
 - apply **对未知 slice 诚实降级**，不假装验证。`slice_not_available` 时显式告知上游"只做了编译验证"。
+
+---
+
+## Phase 0.5: 强制预检（所有模式均执行，不可跳过）
+
+**在加载任何 slice 知识之前**，对输入代码逐条执行以下 5 项检查。任一项失败则**立即返回 `status: fail`**，不继续进入 Phase 1–5。这是最快的门禁，用最低成本拦截最常见的问题。
+
+| 项 | 检查内容 | 失败条件 | severity |
+|----|---------|---------|---------|
+| **P1 Imports** | 每个 import 语句引用的包名和路径是否与 slice 平台文件（或 SDK 的 `*.d.ts`）中的完全一致 | 包名拼写错误、路径不存在、引用了未从 SDK 导出的子路径 | critical |
+| **P2 Types** | 每个 API 调用的参数类型是否与 SDK 类型定义逐字符匹配 | 类型不符（如传 `string` 期望 `{ deviceId: string }`）、缺少必填字段、多余字段 | critical |
+| **P3 API Existence** | 引用的每个方法/属性是否在 SDK 的 `.d.ts` 中真实存在 | 方法名不存在、属性不存在（如 `networkInfo.rtt` vs `networkInfo.delay`） | critical |
+| **P4 MUST/MUST NOT** | 是否满足 slice 中所有 MUST 规则、未触发任何 MUST NOT 规则 | 任意一条 MUST 未满足 / 任意一条 MUST NOT 被触发 | critical |
+| **P5 Return value usage** | 返回 `void` 的函数是否被当作有返回值使用；返回 `Promise<T>` 的函数是否被正确 `await` 并消费其结果 | `void` 函数的返回值被赋值、`Promise` 未被 `await` 且结果被使用 | critical |
+
+**执行要求**：
+
+- P1–P3 必须对照 **SDK `.d.ts` 文件**（`node_modules` 或 slice 平台文件中引用的类型定义），不得依赖 AI 记忆。若无法读取 `.d.ts`，在输出中显式标注 `⚠️ d.ts 不可读 — P1/P2/P3 为近似检查`。
+- P4 在 slice 平台文件可读时跑；若 `slice_not_available`，P4 标 `skipped`。
+- P5 是纯代码静态分析，无需 `.d.ts`，任何模式下均可执行。
+
+**输出结构**（附加到 `response` 根字段）：
+
+```yaml
+preflight:
+  status: pass | fail
+  checks:
+    P1_imports:    { status: pass | fail | skipped, issues: [...] }
+    P2_types:      { status: pass | fail | skipped, issues: [...] }
+    P3_api_exist:  { status: pass | fail | skipped, issues: [...] }
+    P4_must_rules: { status: pass | fail | skipped, issues: [...] }
+    P5_return_val: { status: pass | fail, issues: [...] }
+```
+
+每条 issue 格式与 `constraint_check.issues` 相同（`id / severity / evidence / fix`）。
 
 ---
 
@@ -474,22 +535,13 @@ git stash pop  # 恢复变更
 
 ## 自验证模式（被其他 skill 调用时）
 
-当 topic skill 或 onboarding skill 生成代码后调用本 skill，流程精简为：
+当 topic skill 或 onboarding skill 生成代码后调用本 skill，执行顺序如下：
 
-1. **跳过 Phase 1.1**（代码上下文已由调用方确定）
-2. **执行 Phase 2**（约束合规 — 重点检查 MUST/MUST NOT）
-3. **执行 Phase 3**（编译验证 — 必须实际编译）
-4. **执行 Phase 4**（集成安全 — 如果是已有项目场景）
-5. **输出精简报告**（只输出 issues 和编译结果，合规项省略）
+1. **Phase 0.5（强制预检）** — 必须执行，不可跳过。任一 P1–P5 失败 → 直接返回 `status: fail`，不进入后续阶段。
+2. **跳过 Phase 1.1**（代码上下文已由调用方确定）
+3. **执行 Phase 2**（约束合规 — 重点检查 MUST/MUST NOT）
+4. **执行 Phase 3**（编译验证 — 如果有项目环境则必须实际编译；无环境则在报告中显式标注 `⚠️ 编译未验证`）
+5. **执行 Phase 4**（集成安全 — 如果是已有项目场景）
+6. **输出精简报告**（只输出 issues 和编译结果，合规项省略）
 
-### 自验证 5-point checklist（快速检查）
-
-对于简单代码片段，可用此 checklist 替代完整管线：
-
-1. **Imports**: import 语句是否与 slice 平台文件中的完全一致？（不凭记忆写 SDK 名）
-2. **Types**: 参数类型是否与 slice 的 API 签名逐字符一致？
-3. **Platform APIs**: 引用的每个平台 API 是否真实存在？（不发明便利方法/扩展）
-4. **MUST/MUST NOT**: 是否满足所有 MUST 规则、避免所有 MUST NOT？
-5. **Compilable**: 代码能否在安装了正确 SDK 的项目中独立编译？所有 import、类型声明、协议遵循是否完整？
-
-任何一项不通过 → 修复后重检，不交付有问题的代码。
+**关于 `mode: static-only` 的正确理解**：`static-only` 不是"不验证"的别名。它的含义是"只做 Phase 0.5 + Phase 2，跳过需要编译环境的 Phase 3/4"。上游 skill 在没有项目环境时也**必须**调用 apply，并在步骤摘要中显式写出 `⚠️ 编译未验证`——不能因为"没法编译"就省去 apply 调用。
