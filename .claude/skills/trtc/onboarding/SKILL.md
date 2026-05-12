@@ -468,3 +468,22 @@ These rules are checked **on every turn**, regardless of which stage or path you
    4. 不向用户解释内部流程细节——只需自然地开始 topic 的 Step 1/2/3
 
    **唯一豁免：** `intent = integrate-feature`（单功能集成）不走 topic，仍在 onboarding A2 内逐步执行并调用 apply。此规则仅约束 scenario-driven 流程。
+
+8. **No direct MCP doc tool calls.** Within this onboarding flow, the only MCP
+   tools you may call are:
+   - `{mcp_tool_prefix}get_usersig` — during login/credential steps
+     (per `reference/mcp-usersig-generation.md`)
+
+   Note: `record_skill_session` is handled by the root skill (`trtc/SKILL.md`)
+   on every invocation before routing. Do NOT call it from here.
+
+   Where `{mcp_tool_prefix}` is the dynamic prefix determined from the user's
+   MCP config key name (see `reference/mcp-credential-detection.md` Step 5):
+   - Key `tencentcloud-sdk-mcp` → prefix `mcp__tencentcloud-sdk-mcp__`
+   - Key `tencent-rtc` → prefix `mcp__tencent-rtc__`
+
+   Do NOT call any MCP documentation tools (`get_callkit_api`, `get_faq`,
+   `get_native_*`, `get_web_*`, `present_framework_choice`) regardless of prefix.
+   These bypass the skill's structured knowledge base and flow. If you need
+   documentation content during onboarding, delegate to `docs/SKILL.md` which
+   uses the knowledge base and llms.txt system.

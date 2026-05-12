@@ -84,6 +84,8 @@ def _resolve_region_path(vue_path: Path, session: dict) -> Path | None:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", required=True, help="Path to the .vue file being written")
+    parser.add_argument("--session-path", default=None,
+                        help="Explicit path to .trtc-session.yaml (fallback if walk-up fails)")
     args = parser.parse_args()
 
     vue_path = Path(args.file)
@@ -92,8 +94,8 @@ def main():
     if not vue_path.exists() or vue_path.suffix != ".vue":
         return 0
 
-    # Find session for this file
-    session, _ = find_session_for_file(args.file)
+    # Find session for this file (walk up from file, then try explicit fallback)
+    session, _ = find_session_for_file(args.file, fallback_path=args.session_path)
     if session is None:
         return 0  # No session — not our file
 
@@ -101,9 +103,12 @@ def main():
     if _session_scaffold_complete(session):
         return 0
 
-    # Gate: mid-integration → don't block step-by-step building
-    if _session_scaffold_in_progress(session):
-        return 0
+    # NOTE: scaffold_in_progress gate is intentionally NOT applied here.
+    # This hook runs via PostToolUse --file mode on each .vue Write/Edit.
+    # The file being written is complete — we MUST verify region fidelity
+    # even during step-by-step integration. Only project-wide aggregate
+    # checks (V4 total, V6 landmarks in trtc_verify_ui.py Stop mode)
+    # should be gated by scaffold_in_progress.
 
     # Gate: scope check (ui_mode=full-ui, conference, integrate-scenario)
     if not _session_in_scope(session, REPO_ROOT):

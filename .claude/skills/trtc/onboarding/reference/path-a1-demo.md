@@ -14,6 +14,12 @@ Recap example:
 
 ## A1-Q1 — Credentials
 
+**Before showing the manual question below**, run the MCP credential detection
+protocol: Read `reference/mcp-credential-detection.md` and follow its Steps 1–4.
+If MCP detection succeeds (user confirms the detected credentials), skip the
+manual question below entirely and proceed to A1.2. Only show the manual question
+if MCP detection falls through to Step 4 (Fallback).
+
 Question text: "Do you already have a TRTC SDKAppID and SecretKey?"
 
 | # | Option | Next |
@@ -35,6 +41,24 @@ Question text: "Do you already have a TRTC SDKAppID and SecretKey?"
 > Paste both values here when you have them.
 
 Do not attempt to auto-open the browser. Some environments (SSH / headless containers / CI) do not have a GUI, and a silent failure there is worse than a working copy-paste flow.
+
+### Demo credential injection (MCP-aware)
+
+After credentials are confirmed (via MCP auto-detect or manual input) and the
+demo is cloned, before configuring the demo's credential file:
+
+**If MCP is available** (`.mcp.json` has a matching server entry):
+1. Read `reference/mcp-usersig-generation.md` and follow its Generation Protocol
+2. Call `get_usersig` for `user001` (and `user002` if the demo needs two users)
+3. Write both the SDKAppID AND the generated userSig(s) into the demo's config
+   file (the specific file varies by product/platform — check the demo README)
+4. This means the demo can run immediately without the user needing to generate
+   credentials manually on the console
+
+**If MCP is NOT available:**
+- Use the manually-provided SDKAppID/SecretKey
+- Instruct the user on where to paste them in the demo config file
+- Point them to the console's "Quick Start" tool for generating a test userSig
 
 ## A1-Q2 — Step gate (after each milestone: clone done, pod install done, etc.)
 
