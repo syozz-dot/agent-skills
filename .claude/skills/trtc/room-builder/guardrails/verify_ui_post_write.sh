@@ -12,6 +12,14 @@ set -euo pipefail
 
 GUARDRAILS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Resolve session path: CLAUDE_PROJECT_DIR is set by Claude Code hooks runtime.
+# Fall back to the guardrails dir's ancestor (5 levels up = repo root).
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+    SESSION_PATH="${CLAUDE_PROJECT_DIR}/.trtc-session.yaml"
+else
+    SESSION_PATH="$(cd "$GUARDRAILS_DIR/../../../../.." && pwd)/.trtc-session.yaml"
+fi
+
 # Hook stdin is JSON: { tool_input: { file_path: "..." }, ... }
 # Use Python to parse — avoids hard dependency on jq.
 FILE_PATH=$(python3 -c "
@@ -34,13 +42,13 @@ case "$FILE_PATH" in
     *) exit 0 ;;
 esac
 
-# Run V4/V5 check first
-python3 "$GUARDRAILS_DIR/trtc_verify_ui.py" --file "$FILE_PATH"
+# Run V4/V5 check first (pass session path explicitly)
+python3 "$GUARDRAILS_DIR/trtc_verify_ui.py" --file "$FILE_PATH" --session-path "$SESSION_PATH"
 UI_EXIT=$?
 
 if [[ $UI_EXIT -ne 0 ]]; then
     exit $UI_EXIT
 fi
 
-# Run V7 region fidelity check
-exec python3 "$GUARDRAILS_DIR/trtc_verify_region.py" --file "$FILE_PATH"
+# Run V7 region fidelity check (pass session path as fallback)
+exec python3 "$GUARDRAILS_DIR/trtc_verify_region.py" --file "$FILE_PATH" --session-path "$SESSION_PATH"

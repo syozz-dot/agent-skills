@@ -27,6 +27,7 @@ These are the reason this skill exists. Violating any of them defeats the purpos
 - **G2 — Attribution required.** Every answer includes at least one source citation: a slice ID (`📚 slice <id>`) and/or a trtc.io URL from the llms.txt index. Never cite a URL you didn't fetch or a slice you didn't read.
 - **G3 — Preserve ambiguity.** When multiple authoritative documents apply to the question (e.g., two pricing pages for two different scenarios), list all of them side by side. Do not collapse them into a unified summary that might misrepresent either. Do not pick for the user.
 - **G4 — No invented directories.** When locating a topic, only use `##` headings that actually exist in `llms/{product}.txt`. Do not infer a heading that "should" exist.
+- **G5 — No MCP doc tool substitution.** When answering questions routed here by the main skill, use the knowledge base (slices, `index.yaml`) and trtc.io llms.txt files as authoritative sources. Do NOT call any MCP documentation tools (`get_callkit_api`, `get_faq`, `get_native_*`, `get_web_*`, `present_framework_choice`) regardless of their tool prefix (`mcp__tencentcloud-sdk-mcp__` or `mcp__tencent-rtc__`). Those tools serve standalone MCP usage in environments without the TRTC skill; within this skill system, the knowledge base and trtc.io llms.txt files are the source of truth.
 
 ## Inputs (from root skill)
 

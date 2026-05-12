@@ -185,11 +185,34 @@ Use `AskUserQuestion` with `multiSelect: true`.
 
 ## A2-Q2 — Credentials
 
-Reuse A1-Q1 format (see `reference/path-a1-demo.md`). Skip entirely if `credentials.sdk_app_id_provided` and `credentials.secret_key_provided` are both `true` in the session file.
+**Before showing the manual credential prompt**, run the MCP credential detection
+protocol: Read `reference/mcp-credential-detection.md` and follow its Steps 1–4.
+If MCP detection succeeds (user confirms the detected credentials), skip the
+manual prompt below and proceed directly to A2-Q3. Only fall through to the
+A1-Q1 format if MCP detection does not apply (Step 4 Fallback).
 
-**Important**: the actual SDKAppID / SecretKey values are **never** written to `.trtc-session.yaml`. After the user pastes them, hold them in conversation context only. Update the session file's `credentials.sdk_app_id_provided` / `credentials.secret_key_provided` booleans to `true` — and persist those booleans as part of the next Checkpoint write (do not trigger an extra Write just for credentials).
+Reuse A1-Q1 format (see `reference/path-a1-demo.md`) as the manual fallback. Skip entirely if `credentials.sdk_app_id_provided` and `credentials.secret_key_provided` are both `true` in the session file.
+
+**Important**: the actual SDKAppID / SecretKey values are **never** written to `.trtc-session.yaml`. After the user pastes them (or confirms MCP-detected values), hold them in conversation context only. Update the session file's `credentials.sdk_app_id_provided` / `credentials.secret_key_provided` booleans to `true` — and persist those booleans as part of the next Checkpoint write (do not trigger an extra Write just for credentials).
 
 ## A2-Q3 — Per-step progression
+
+### Login step enhancement (MCP-aware)
+
+When the current step's slice is `{product}/login-auth` (or any slice whose
+implementation involves `login()` / `LoginStore` / TIM login / TRTC
+`enterRoom` authentication):
+
+Before generating the login code, read `reference/mcp-usersig-generation.md`
+and follow its Generation Protocol. This ensures:
+- A real, working test userSig is embedded for immediate testing (if MCP available)
+- Input fields remain available for custom userID/userSig at runtime
+- The generated login page works out-of-the-box without manual credential setup
+
+If MCP is not available, follow the Fallback section in `mcp-usersig-generation.md`
+(placeholders + instruction comments).
+
+### Per-step execution
 
 After writing code for each step, call `apply/SKILL.md` as described in **"Calling apply"** above. Only report the step done after `response.status` is `pass` (or `partial` with no `critical` severity issues). Summarize the outcome to the user using this template:
 

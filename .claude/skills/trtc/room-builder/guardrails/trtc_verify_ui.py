@@ -447,9 +447,12 @@ def main():
         return 0
 
     # In-progress gate: during step-by-step topic integration, the project
-    # is intentionally incomplete. Don't fire V4/V6 for missing landmarks
-    # that haven't been generated yet.
-    if _session_scaffold_in_progress(session):
+    # is intentionally incomplete. Don't fire V4 aggregate / V6 for missing
+    # landmarks that haven't been generated yet.
+    # BUT: in --file mode (PostToolUse), we STILL enforce per-file checks
+    # (V4 per-file count, V5 structural abuse) because the file being written
+    # is complete — we just skip project-wide aggregate checks.
+    if _session_scaffold_in_progress(session) and not args.file:
         return 0
 
     # Scope gate: ui_mode + product + intent + scenario-has-theme.

@@ -15,7 +15,19 @@
       "Bash(lsof -ti:8080)",
       "Bash(xargs kill *)",
       "Bash(lsof -i:8080)",
-      "Bash(awk -F: '{print $2}')"
+      "Bash(awk -F: '{print $2}')",
+      "Bash(git status *)",
+      "mcp__tencentcloud-sdk-mcp__record_skill_session",
+      "mcp__tencentcloud-sdk-mcp__get_usersig",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(curl -sk https://localhost:8080)",
+      "Bash(jobs -l)",
+      "Bash(kill 16935)",
+      "Bash(curl -s http://localhost:8080)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "tencentcloud-sdk-mcp"
+  ]
 }
