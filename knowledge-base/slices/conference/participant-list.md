@@ -112,6 +112,7 @@ empty
 3. **不要把 `pendingParticipantList` 当作在线成员列表** —— 待入会、呼叫中或预约成员不能直接参与在线成员统计、布局和会控判断。
 4. **不要把成员列表的展示操作误当成权限修改成功** —— 真正的角色治理和踢人动作应回到 `participant-management` 或 `room-moderation`。
 5. **不要忽略分页去重与离房清理** —— 否则很容易出现成员重复、幽灵成员或跨房间残留。
+6. **不要直接用 `participantList[self].hasAudioStream` / `hasVideoStream` 判断本地用户设备状态** —— SDK 的 participantList 对本地用户的音视频流字段不保证在 `muteMicrophone()`/`closeLocalCamera()` 后立即更新。本地用户设备状态必须读取 `useDeviceState().cameraStatus` 和本地维护的 `isMicOff` ref；只有远端用户才能安全地通过 `hasAudioStream`/`hasVideoStream` 判断。
 
 ## 排障指南
 

@@ -34,6 +34,45 @@ def load_session(session_path):
     return yaml.safe_load(p.read_text()) or {}
 
 
+def find_session_for_file(file_path, fallback_path=None):
+    """Walk up from file_path to find the nearest .trtc-session.yaml.
+
+    This allows hooks to discover the session file that OWNS the file being
+    written, rather than assuming a fixed location. Crucial for multi-project
+    setups where the user project is outside the skill repo root.
+
+    Search order:
+      1. Walk up from file_path's directory looking for .trtc-session.yaml
+      2. If not found, try fallback_path (typically REPO_ROOT/.trtc-session.yaml)
+      3. Return None if neither works
+
+    Returns (session_dict, session_path) or (None, None).
+    """
+    target_name = '.trtc-session.yaml'
+    p = Path(file_path).resolve()
+
+    # Walk up from the written file's directory
+    current = p.parent if p.is_file() else p
+    for _ in range(20):  # max depth to avoid infinite loop
+        candidate = current / target_name
+        if candidate.exists():
+            session = yaml.safe_load(candidate.read_text()) or {}
+            return session, candidate
+        parent = current.parent
+        if parent == current:
+            break  # reached filesystem root
+        current = parent
+
+    # Fallback to fixed path
+    if fallback_path:
+        fb = Path(fallback_path)
+        if fb.exists():
+            session = yaml.safe_load(fb.read_text()) or {}
+            return session, fb
+
+    return None, None
+
+
 def project_root(session):
     """Extract project_state.project_root from a parsed session dict.
 
@@ -79,6 +118,31 @@ def scaffold_complete(session):
     if not isinstance(step, str):
         return False
     return step.endswith("-complete")
+
+
+def scaffold_in_progress(session):
+    """True when topic is actively building step-by-step (mid-integration).
+
+    During step-by-step integration, the project is intentionally incomplete.
+    The Stop hook should NOT fire V4/V6 errors for missing landmarks that
+    haven't been generated yet. The verify_ui check is only meaningful when
+    all steps are done (scaffold_complete) or when the user declares done.
+
+    Signals: current_step is 'topic-handoff' or matches 'A2.<digit>' pattern
+    (meaning we're mid-scenario, not yet finished).
+    """
+    if session is None:
+        return False
+    step = session.get("current_step")
+    if not isinstance(step, str):
+        return False
+    # topic-handoff: just entered topic, building has started
+    if step == "topic-handoff":
+        return True
+    # A2.N pattern: mid-step in integration path
+    if step.startswith("A2.") and not step.endswith("-complete"):
+        return True
+    return False
 
 
 # Scope of the ui_mode hooks: which sessions they're allowed to act on.
