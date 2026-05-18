@@ -89,12 +89,12 @@ request:
 - `pass` → mark step done, include compile command + exit code
 - `partial` → note warnings in one line, keep moving
 - `fail` → do NOT present code. Follow `retry_hint.strategy`:
-  - `patch` → apply fixes, retry once
-  - `regenerate` → regenerate from scratch, re-read slice, retry once
+  - `patch` → apply fixes, retry
+  - `regenerate` → regenerate from scratch, retry
   - `give-up` → tell user "I hit a snag on step N", offer to skip/pause/provide context
   - `missing-field` → internal bug, tell user "I hit an internal snag", offer to skip
 
-**Retry budget: max 2 apply calls per step.** If second call fails with same `failure_signature`, treat as `give-up`.
+Iterate apply until it passes; the Stop hook keeps the loop alive while state is `apply_failed`. The runtime no longer enforces a fixed retry cap or `failure_signature` — see `docs/apply-skill-long-term-design.md` §10 for the walk-back rationale.
 
 **Never** tell the user "I'm calling apply" or show raw request/response yaml.
 

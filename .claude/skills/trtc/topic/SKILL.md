@@ -70,6 +70,22 @@ Ask the user to confirm they're ready before diving into implementation. This pr
 
 ### Step 3: Walk through each step
 
+> **🚦 MANDATORY: read the State Machine Guide before starting the slice loop.**
+>
+> The slice loop is enforced by an on-disk state machine plus PreToolUse / Stop
+> hooks. The harness will physically block tool calls that violate it. Drive
+> the state machine; do not work around it.
+>
+> **Operator's manual** (the five Bash commands, the state diagram, what the
+> harness enforces, auto-advance policy, and the per-slice rhythm):
+>
+> → Read **[`topic/scripts/STATE-MACHINE-GUIDE.md`](scripts/STATE-MACHINE-GUIDE.md)** before starting Step 3 of any new scenario.
+>
+> Quick recap (don't rely on memory — open the guide):
+> - 5 Bash commands: `init_slice_queue.py`, `next_slice.py status`, `next_slice.py advance <transition>`, `apply.py --slice <id>`
+> - Per-slice rhythm: `status` → `Read` slice → `mark_slice_read` → `Write` code → `mark_code_written` → `apply.py --slice <id>` → (pause for user OR auto-advance) → next slice
+> - The evidence shown to the user MUST come from the JSON `apply.py` writes to `.trtc-apply-evidence/{slice_slug}.json` — quote it, don't compose it from memory.
+
 **Slice sequence depends on the scenario's form (see Step 1.5):**
 
 - **Form A scenarios**: walk every slice the scenario file lists (in document order).
@@ -94,69 +110,34 @@ For each step in the (filtered) scenario sequence:
    - **G5: Compilable by default** — Generated code must be compilable when added to a project with the correct SDK installed. Include all necessary imports, type declarations, and protocol conformances. If something can't compile without additional context, note it with a `// TODO:` comment explaining what's needed.
 
 4. **Highlight the gotchas** — surface the ALWAYS/NEVER rules that apply to this step. Frame them as "the common mistakes I've seen" rather than abstract rules.
-5. **Pause and confirm** — after presenting code and completing the Apply Evidence Block, ALWAYS pause and wait for user confirmation before proceeding to the next step. See **Step 3 progression rules** below.
+5. **Pause and confirm** — after presenting code and running `apply.py --slice <id>`, ALWAYS pause and wait for user confirmation before proceeding to the next step. See **Step 3 progression rules** below.
 
 ### Step 3 progression rules
 
-**ALWAYS pause after each step.** Every step follows the same rhythm:
+The state machine (see [`scripts/STATE-MACHINE-GUIDE.md`](scripts/STATE-MACHINE-GUIDE.md)) defines the legal transitions. This section adds the **caller-side rules** — what topic does around those transitions.
 
-1. Generate code for the current slice
-2. Execute Apply Evidence Block (see below)
-3. Present results to the user
-4. **STOP and wait for user input** — do NOT proceed to the next step
+**Per-step output discipline:** Each step is ONE response. Do NOT generate code for multiple slices in a single response. If you find yourself writing code that belongs to the next slice, STOP — you are violating the per-step rule.
+
+**After running `apply.py --slice <id>`, present the evidence JSON to the user.** Quote the JSON `apply.py` writes to `.trtc-apply-evidence/{slug}.json` — do not compose evidence from memory.
+
+**Acting on apply result:**
 
 | apply result | Action |
 |---|---|
-| `pass` | Show the Evidence Block, then ask the user to confirm before continuing to the next step. |
-| `partial` (only `warning`/`info` severity) | Show the Evidence Block with warnings noted, then ask the user to confirm. |
-| `partial` (any `critical` severity) | Show the critical warnings and ask the user how to proceed (fix / skip / pause). |
-| `fail` | Follow the retry rules in "Calling apply". If retry also fails (give-up), pause and inform the user. |
+| `pass` | If `auto_advance_policy = pause_each`, ask user to confirm with `AskUserQuestion` (table below). If `pause_on_failure` or `pause_at_end`, the cursor already advanced — just announce the next slice. |
+| `partial` (only `warning`/`info`) | Show the warnings noted, ask the user to confirm. |
+| `partial` (any `critical`) | Show the critical warnings and ask the user how to proceed (fix / skip / pause). |
+| `fail` | Regenerate / patch the code, re-run apply. The state machine stays at `apply_failed` so the Stop hook keeps the loop alive until apply passes. |
 
-**Why no auto-advance:** Auto-advance removes the external gate that ensures apply is actually executed. When the AI knows it must present results to the user at each step, it cannot skip apply — the user would immediately see the absence of evidence. This per-step pause IS the enforcement mechanism for apply.
-
-**After presenting the Evidence Block, use `AskUserQuestion` with these options:**
+**`AskUserQuestion` options after a clean pass under `pause_each`:**
 
 | # | Option | Action |
 |---|--------|--------|
-| 1 | 继续下一步 {next_slice_name} | Proceed to the next step |
-| 2 | 这一步有问题，先修 | Re-examine and fix the current step |
-| 3 | 暂停，稍后继续 | Save `current_step` to session, stop |
+| 1 | 继续下一步 {next_slice_name} | call `next_slice.py advance mark_user_confirmed` |
+| 2 | 这一步有问题，先修 | re-examine and fix the current step |
+| 3 | 暂停，稍后继续 | save `current_step` to session, stop |
 
 Only proceed to the next step when the user picks option 1.
-
-**Apply Evidence Block (MANDATORY for every step — no exceptions):**
-
-Every step that passes apply MUST include the following visible block in the response. This is NOT optional. A step without this block is NOT completed, regardless of what the AI claims.
-
-```
-### Step {n}: {slice_name} ✅
-
-**P1 Imports:** `{actual grep command executed}` → {result}
-**P3 API check:** `{actual grep command executed}` → {result}
-**P4 MUST rules:** {count} checked, {count} passed
-**Compile:** `{actual compile command}` → exit {code}
-```
-
-**What each line requires (minimum viable evidence):**
-
-| Line | What must actually happen | Fake = violation |
-|---|---|---|
-| P1 Imports | Execute `grep` or `ls` against `node_modules/` to confirm the import path resolves | Saying "import path is correct" without a command |
-| P3 API check | Execute `grep` against SDK `.d.ts` or slice file to confirm at least the primary API exists (e.g. `useLoginState`) | Saying "API exists" from memory |
-| P4 MUST rules | Read the slice's MUST rules, then `grep` the generated file for each required pattern; report count | Saying "all MUST rules satisfied" without grep |
-| Compile | Execute the actual build command (`npx webpack --mode production` or equivalent) and show exit code | Not running the command |
-
-**Minimum execution standard:**
-- P1: At least 1 actual `grep` or `ls` command against `node_modules/` executed via Bash tool
-- P3: At least 1 actual `grep` command against `.d.ts` or slice file executed via Bash tool
-- P4: At least 1 actual `grep` command against the generated code file executed via Bash tool, checking for a pattern from the slice's MUST rules
-- Compile: Actual `webpack` or `tsc` command executed via Bash tool
-
-**If any Bash command cannot be executed** (no node_modules, no project): mark the line as `⚠️ NOT VERIFIED` instead of ✅. Never fake a ✅.
-
-**Why this matters:** The Apply Evidence Block is the only proof that verification actually happened. Without executed commands and real output, "apply pass" is meaningless text. The user cannot distinguish real verification from hallucinated verification unless they see actual command → output pairs.
-
-**Per-step output discipline:** Each step is ONE response. Do NOT generate code for multiple slices in a single response. If you find yourself writing code that belongs to the next slice, STOP — you are violating the per-step rule.
 
 ### Step 3.5: Apply `ui_mode` to code generation
 
@@ -387,63 +368,13 @@ If the user hits a problem mid-scenario:
 
 ### Calling apply (internal quality gate)
 
-apply is invoked per step, not per file and not per session. It follows the I/O contract defined in `apply/SKILL.md` Phase 0. Construct each call explicitly — do not dump raw code and hope apply infers context.
+Apply is invoked per step (not per file, not per session). The full input/output contract — including request fields, mode selection, response shape, and `retry_hint` semantics — lives in [`apply/SKILL.md` Phase 0](../apply/SKILL.md). **Read it once at skill entry; do not paraphrase its contract here.** This section only documents topic-side behaviour around those calls.
 
-**Request construction** (build before calling apply):
+**Caller behaviour rules:**
 
-```yaml
-request:
-  code:
-    - path: {relative path under project root}
-      content: {full file content after this step's edits}
-    # include every file this step created or modified
-
-  product:     {scenario.product, e.g. live / conference / chat / call / rtc-engine}
-  platform:    {user's platform}
-  capability:  {slice_id of the current step, e.g. "live/coguest-apply"}
-
-  project_context:
-    root:              {absolute path if file scanning is available}
-    modified_files:    {paths touched by this step}
-    has_existing_tests: {true if the project has a test command configured, else false}
-
-  related_capabilities:
-    # list prerequisite slices so apply can verify cross-slice prerequisites
-    # without re-inferring from code
-    - {e.g. live/login-auth if this step needs login}
-    - {e.g. the slice immediately before this one in the scenario sequence}
-
-  mode: full | quick | static-only
-```
-
-**Mode selection rules:**
-
-| Situation | mode |
-|-----------|------|
-| Code will be written into the user's project (Step 3 compile gate) | `full` |
-| Snippet-only answer (user just wants to see code, not integrate it) | `quick` |
-| No project scanning / no build env available | `static-only` |
-
-**Response handling:**
-
-| response.status | What to do |
-|-----------------|------------|
-| `pass` | Mark the step as done. In the step summary, include the compile command + exit code from `response.compile_check` as proof. Do not expose raw constraint-check details unless the user asks. |
-| `partial` | Step done with non-blocking warnings. Note them in a single collapsed line, keep moving. Do NOT treat a `partial` with only `warning`/`info` severity as a blocker. |
-| `fail` | Step NOT done. Do not present the code as if it works. Follow `response.retry_hint.strategy` below. |
-
-**Acting on `retry_hint` when `status = fail`:**
-
-| retry_hint.strategy | Action |
-|---------------------|--------|
-| `patch` | Apply the specific fixes from `response.constraint_check.issues[*].fix.code_diff`, re-call apply **once** with the updated code. |
-| `regenerate` | Regenerate the step's code from scratch, guided by `retry_hint.focus_on`. Re-read the slice if needed (don't regenerate from memory). Call apply again. |
-| `give-up` | Stop retrying. Tell the user "I hit a snag on step N, here's what I tried: ..." — never "apply skill said X". Offer three options: skip this step, pause the scenario, or provide more context. |
-| `missing-field` | **Do NOT retry.** This signals the caller (topic skill itself) built a malformed request — typically forgot `capability`, `product`, or `platform`. The missing field names are listed in `retry_hint.focus_on`. Treat as a self-bug: tell the user "I hit an internal snag on step N" and offer to skip this step. Do not regenerate code — the code is not the problem. |
-
-**Retry budget:** at most **2 apply calls per step**. Matches apply's own compile retry budget (Phase 3.2). If the second call returns `fail` with the **same `failure_signature`** as the first, treat it as `give-up` even if `retry_hint` says otherwise — the second call has proven that the current patch/regenerate strategy isn't converging.
-
-**Planned-status slices:** if the current step references a slice with `status: planned`, apply's `capability` field still uses that slice id. apply will return `warning: slice_not_available` and fall back to compile-only verification. Topic skill should present the code with an extra note: "This step uses a slice still being documented — I verified it compiles, but the slice-level rules couldn't be checked."
+- **Apply is the verifier — not your memory:** if apply returns `fail`, regenerate / patch the code based on the rule text in the evidence JSON and re-run apply. Do not declare the step done while the state is `apply_failed` — the Stop hook will block end-of-turn anyway.
+- **Planned-status slices:** if the current step references a slice with `status: planned`, apply's `capability` field still uses that slice id. apply will return `warning: slice_not_available` and fall back to compile-only verification. Present the code with an extra note: "This step uses a slice still being documented — I verified it compiles, but the slice-level rules couldn't be checked."
+- **`missing-field` retry_hint:** Do NOT retry. This signals topic itself built a malformed request (forgot `capability`, `product`, or `platform`). Treat as a self-bug: tell the user "I hit an internal snag on step N" and offer to skip this step. Do not regenerate code — the code is not the problem.
 
 **Never:**
 - Never tell the user "I'm calling apply" or "apply says X". apply is silent infrastructure.

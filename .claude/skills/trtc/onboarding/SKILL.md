@@ -139,6 +139,17 @@ ui_customizations:
 # cannot switch modes mid-integration — they must restart to pick differently.
 ui_mode: null                   # full-ui | headless | null
 
+# --- Auto-advance policy (scenario-driven flows only) ---
+# Set by A2-Q0.6 to control whether topic pauses for confirmation after each
+# step's silent quality gate passes.
+# - pause_on_failure: cursor auto-advances on a clean step; only failures
+#                     pause for user input. Recommended default.
+# - pause_each:       always pause for "继续" between steps. Original behaviour;
+#                     choose for maximum review control.
+# - null / unset:     treated as pause_each — fail closed.
+# Root-level field, alongside ui_mode and the rest of the session schema.
+auto_advance_policy: pause_on_failure   # pause_on_failure | pause_each | null
+
 # --- 对话恢复辅助 ---
 last_recap: "Live on iOS, adding gift to existing project, at step A2.3"
 ```
@@ -152,7 +163,10 @@ last_recap: "Live on iOS, adding gift to existing project, at step A2.3"
 | `search/SKILL.md` | ❌ stateless | ❌ |
 | `docs/SKILL.md` | ❌ stateless | ❌ |
 | `apply/SKILL.md` | ❌ independent input | ❌ |
-| `topic/SKILL.md` | reserved for future integration | reserved |
+| `topic/SKILL.md` | ✅ on every Skill-tool invocation (reads `current_step`, `scenario`, `confirmed_plan`, `enhancement_level`, `auto_advance_policy`, `ui_mode`, `project_state`) | ✅ writes `slice_queue`, `current_slice_index`, `current_slice_state` (state machine fields) |
+| `room-builder/SKILL.md` | ✅ when invoked by topic in `ui_mode = full-ui` (reads `scenario`, `enhancement_level`) | ❌ |
+
+**How `topic` is invoked**: by `onboarding` reading `topic/SKILL.md` after A2-Q0 selects a concrete scenario; or directly by the router when the user explicitly asks for a step-by-step walkthrough. (`trtc-topic` is not registered as a top-level Skill — it lives nested under `trtc/topic/`, so the Skill tool can't resolve it today. Plain Read is the only working handoff. Hooks + the on-disk state machine carry the topic constraints across the handoff regardless.)
 
 Skills not listed above receive `product` / `platform` / other inputs explicitly from the caller. Do not synthesize or read the session file from them.
 
@@ -187,10 +201,10 @@ Before asking anything, silently extract what you can from the user's first mess
 
 | 业务场景关键词 / Business scenario keyword | 映射产品 | A2-Q0 预选 scenario |
 |---|---|---|
-| 远程医疗 / 在线问诊 / 医患沟通 / telemedicine / remote consultation | `conference` | `telemedicine` |
-| 在线教育 / 网课 / 答疑 / 在线课堂 / online classroom / e-learning | `conference` | `online-classroom` |
+| 远程医疗 / 在线问诊 / 医患沟通 / 视频问诊 / telemedicine / remote consultation | `conference` | `1v1-video-consultation` |
+| 多医生会诊 / 多学科会诊 / MDT / multi-doctor consultation / multidisciplinary consultation | `conference` | `medical-multidoctor-consultation` |
 | 常规会议 / 企业会议 / 部门例会 / general meeting / corporate meeting / internal meeting | `conference` | `general-conference` |
-| 研讨会 / webinar / 大型线上会议 / large seminar | `conference` | `webinar-large` |
+| 研讨会 / webinar / 大型线上会议 / large seminar | `conference` | `webinar-conference` |
 | 视频面试 / 远程面试 / video interview / 视频答辩 / 在线评审 | `conference` | `general-conference`（少数人面对面，属通用会议形态） |
 **How to apply this table**: If the first message matches a row here and does NOT also explicitly name a TRTC product, treat `product` as inferred by this table. Mention the mapping in the recap (e.g. "Here's what I picked up: - Product: Conference (from 远程医疗问诊)"). If the row lists two candidate products, do NOT pick one silently — present both in the recap and let the user confirm.
 
@@ -446,25 +460,25 @@ These rules are checked **on every turn**, regardless of which stage or path you
 
 5. **One known field per turn.** Never re-ask for information the user has already provided (product, platform, intent, scenario, project_state). Check `.trtc-session.yaml` first.
 
-6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `docs` skill rather than paraphrasing slices yourself. The `docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
+6. **No dumping raw slice content.** Always go through onboarding flow first. If the user's intent is clearly conceptual/learning ("how does X work"), hand off to `docs/SKILL.md` rather than paraphrasing slices yourself. The `trtc-docs` skill will decide slice-first (for error codes / official patterns / API comparisons) vs llms.txt-direct (for conceptual explanations / pricing / migration).
 
 7. **Scenario handoff 是不可跳过的阻塞门。** 当 `intent = integrate-scenario` 且 A2-Q0 已选定具体 scenario 时：
 
-   - MUST 加载 `topic/SKILL.md` 并将执行权完整交给 topic。
+   - MUST 通过 Read 读 `.claude/skills/trtc/topic/SKILL.md`，按 topic 的流程逐步执行。topic 的真正约束由 PreToolUse / Stop hooks + on-disk state machine 物理强制（见 `topic/scripts/STATE-MACHINE-GUIDE.md`），跟 SKILL.md 怎么进入上下文无关——所以读进来就够。
    - MUST NOT 在 onboarding 内直接生成任何业务代码文件（.vue / .ts / .swift / .kt / .dart 等）。
    - MUST NOT 一次性输出完整项目代码——逐步执行、逐步 apply 是 topic 的核心设计，不可绕过。
    - MUST 在 handoff 前将 `current_step = 'topic-handoff'` 和 `scenario = <chosen-id>` 写入 `.trtc-session.yaml`。
 
    **Self-check 信号（每次准备写文件前执行）：**
    如果你的下一个动作是 Write / Edit 一个业务代码文件，而以下任一条件为真——你正在违规，立即 STOP：
-   - `.trtc-session.yaml` 中 `current_step` 不是 `'topic-handoff'` 且 topic 从未被加载
+   - `.trtc-session.yaml` 中 `current_step` 不是 `'topic-handoff'` 且 `topic/SKILL.md` 从未被 Read 过
    - `intent = integrate-scenario` 但你仍在 onboarding skill 内执行
    - 你正在一次性生成超过 1 个 slice 对应的代码（topic 是逐步的）
 
    **违规时的强制动作：**
    1. STOP 当前生成
    2. 不输出已生成的代码
-   3. 回到 handoff 点，加载 `topic/SKILL.md`，按 topic 流程逐步执行
+   3. 回到 handoff 点，**Read `topic/SKILL.md`**，按 topic 流程逐步执行
    4. 不向用户解释内部流程细节——只需自然地开始 topic 的 Step 1/2/3
 
    **唯一豁免：** `intent = integrate-feature`（单功能集成）不走 topic，仍在 onboarding A2 内逐步执行并调用 apply。此规则仅约束 scenario-driven 流程。
