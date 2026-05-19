@@ -34,3 +34,4 @@ build/
 
 # TRTC onboarding session state
 .trtc-session.yaml
+.trtc-apply-evidence/

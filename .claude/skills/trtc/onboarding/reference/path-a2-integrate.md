@@ -63,10 +63,10 @@ After apply returns, read the structured `response` and branch as follows:
 |---------------------|------------|
 | `patch` | Apply the specific fixes listed in `response.constraint_check.issues[*].fix.code_diff`, write the updated files, re-call apply **once** with the same `capability` but updated `code`. |
 | `regenerate` | Re-generate the step's code from scratch, guided by `retry_hint.focus_on` (those are the things to fix on the re-gen). Call apply again with the new code. |
-| `give-up` | Stop retrying silently. Surface a message to the user framed as "I hit a snag on step N" — never "apply skill said X". Include what was tried (`attempts`, `failure_signature`) and ask the user whether to skip this step, pause, or provide more context. |
+| `give-up` | Stop retrying silently. Surface a message to the user framed as "I hit a snag on step N" — never "apply skill said X". Include what was tried (`attempts`) and ask the user whether to skip this step, pause, or provide more context. |
 | `missing-field` | **Do NOT retry.** This is a contract violation on the caller side (onboarding built a malformed request), not a code-quality problem. Log the missing field names from `retry_hint.focus_on` internally, then surface "I hit an internal snag on step N" to the user and offer to skip this step. Treat as a self-bug to report rather than a generation quality issue. |
 
-**Retry budget:** at most **2 apply calls per step**. This mirrors apply's own compile retry budget (Phase 3.2). If the second call still returns `fail` with the **same `failure_signature`** as the first, treat it as `give-up` regardless of what `retry_hint.strategy` says — the second call has proven that patch/regenerate isn't converging.
+**Retry guidance:** apply runs an idempotent grep — re-running it after a code change either passes or surfaces a different rule_text. Iterate until apply passes; the Stop hook keeps the loop alive while the state is `apply_failed`. There is no fixed retry cap or `failure_signature` mechanism in the current runtime (the V2 give-up cap was removed).
 
 **Never:**
 - Never tell the user "I'm calling apply" or "apply said X". apply is silent infrastructure.
@@ -107,10 +107,11 @@ Options are **product-dependent**. Pull the concrete scenario list from `knowled
 
 | # | Option | Fills |
 |---|--------|-------|
-| 1 | Webinar / large-audience seminar | `scenario = webinar-large` |
-| 2 | Online education / classroom | `scenario = online-classroom` |
-| 3 | Telemedicine / remote consultation | `scenario = telemedicine` |
-| 4 | General meeting / 常规会议 (generic, no specialized format) | `scenario = general-conference` || 5 | I want to pick individual features myself | fall through to A2-Q1 |
+| 1 | Webinar / large-audience seminar | `scenario = webinar-conference` |
+| 2 | Telemedicine / 1v1 remote consultation | `scenario = 1v1-video-consultation` |
+| 3 | Multi-doctor / multidisciplinary consultation | `scenario = medical-multidoctor-consultation` |
+| 4 | General meeting / 常规会议 (generic, no specialized format) | `scenario = general-conference` |
+| 5 | I want to pick individual features myself | fall through to A2-Q1 |
 | 6 | Type something | free-text |
 
 **If `product = live`:**
@@ -124,8 +125,8 @@ Options are **product-dependent**. Pull the concrete scenario list from `knowled
 
 ## A2-Q0.5 — UI generation mode (conference scenarios only)
 
-**Trigger**: the user picked one of the 4 conference scenarios in A2-Q0
-(`general-conference` / `online-classroom` / `telemedicine` / `webinar-large`).
+**Trigger**: the user picked one of the conference scenarios in A2-Q0
+(`general-conference` / `webinar-conference` / `1v1-video-consultation` / `medical-multidoctor-consultation`).
 Skip for all other products and for the A2-Q1 fall-through branch.
 
 **Purpose**: decide how topic will generate code — as a fused Vue SFC that
@@ -139,8 +140,8 @@ file at skill entry.
 
 | # | Option | Fills | Next |
 |---|--------|-------|------|
-| 1 | Business code + full UI (recommended: AI generates a fused Vue SFC — template, AtomicXCore bindings, and styles — using the {scenario} UI template as visual reference; runs out of the box) | `ui_mode = full-ui` | hand off to topic with full-ui spec |
-| 2 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to topic with headless spec |
+| 1 | Business code + full UI (recommended: AI generates a fused Vue SFC — template, AtomicXCore bindings, and styles — using the {scenario} UI template as visual reference; runs out of the box) | `ui_mode = full-ui` | hand off to `topic/SKILL.md` (Read) with full-ui spec |
+| 2 | Business logic only (headless composables / stores / types; you write your own UI — good for projects that already have a design system) | `ui_mode = headless` | hand off to `topic/SKILL.md` (Read) with headless spec |
 | 3 | Type something | free-text | re-infer |
 
 Persist `ui_mode` to `.trtc-session.yaml`. Piggyback on the Stage 1 confirmed
@@ -151,14 +152,44 @@ consultation is out of scope for this release (see pending_todos).
 
 When a scenario is chosen:
 
-1. **Handoff to `topic/SKILL.md`.** Scenario-driven step-by-step execution (reading the scenario file, walking the ordered slice list, loading per-step slices, pausing between steps, verification checklist) is topic's responsibility, not onboarding's. Onboarding A2 owns intent identification and scenario selection; once a scenario is picked, topic owns the drive.
+1. **Handoff to `topic/SKILL.md` via Read.** Read `.claude/skills/trtc/topic/SKILL.md` and execute its flow. (The Skill tool would be ideal but cannot resolve `trtc-topic` today — it's nested under `trtc/`, not a top-level skill. The real constraints that prevent topic from being silently bypassed live in PreToolUse / Stop hooks and the on-disk state machine, not in how SKILL.md is loaded — so plain Read is sufficient.)
+
+   Scenario-driven step-by-step execution (reading the scenario file, walking the ordered slice list, loading per-step slices, pausing between steps, verification checklist) is topic's responsibility, not onboarding's. Onboarding A2 owns intent identification and scenario selection; once a scenario is picked, topic owns the drive.
 2. Pass the scenario id and the current `session_context` (product, platform, credentials if collected, `target_features`, `project_state`) to topic as inputs. Topic will read `knowledge-base/{scenario.file}` itself.
 3. Save `session_context.current_step = 'topic-handoff'` and `session_context.scenario = <chosen-id>` so if the user later returns mid-flow, routing can resume topic from where it paused.
 4. Do NOT run A2-Q1 (module selection) or A2-Q3 (per-step execution) for scenario-driven flows — those paths are for `intent = integrate-feature` only.
 
 Scenario-driven UI presets, default layouts, and scenario-specific A2-Q4 tweaks are not onboarding's concern after handoff — topic handles them (or defers UI adjustments back to the user as a follow-up).
 
-If the chosen scenario has `status: planned` in the index: tell the user (in their own language) that the detailed playbook for this scenario is still being written, and offer two options — (a) fall through to A2-Q1 for manual module selection, or (b) let onboarding/topic compose the flow on-the-fly from the available slices. Do NOT silently hand off to topic in this case; topic needs a concrete scenario file to drive its walk-through.
+If the chosen scenario has `status: planned` in the index: tell the user (in their own language) that the detailed playbook for this scenario is still being written, and offer two options — (a) fall through to A2-Q1 for manual module selection, or (b) let onboarding/topic compose the flow on-the-fly from the available slices. Do NOT silently Read `topic/SKILL.md` in this case; topic needs a concrete scenario file to drive its walk-through.
+
+## A2-Q0.6 — Auto-advance policy (scenario-driven flows only)
+
+**Trigger**: the user picked any scenario in A2-Q0 (i.e. `intent = integrate-scenario`).
+Skip for `integrate-feature` flows.
+
+**Purpose**: decide how topic paces the slice loop after `apply.py` passes —
+either pause and ask the user 继续? after each slice, or let `apply.py`
+auto-advance the cursor when its checks succeed. Pausing on apply
+**failure** is unconditional regardless of policy — the user always sees a
+break when the code didn't pass the gate.
+
+Ask AFTER A2-Q0.5 (so topic reads both `ui_mode` and `auto_advance_policy`
+from the session at skill entry). Piggyback the Stage 1 confirmed write —
+no extra Write just for these fields.
+
+**Question text** (translate to user's language at runtime):
+
+> Between each step, do you want me to pause and check in with you, or keep going automatically when things look good?
+
+| # | Option | Fills | Notes |
+|---|--------|-------|------|
+| 1 | Keep going automatically — only pause if something looks wrong (recommended — fastest, still safe) | `auto_advance_policy = "pause_on_failure"` | Default. apply.py auto-advances cursor on pass |
+| 2 | Pause after every step so I can review what changed (slower but maximum control) | `auto_advance_policy = "pause_each"` | Original behaviour |
+| 3 | Type something | free-text | re-infer |
+
+Persist `auto_advance_policy` (root-level field) to `.trtc-session.yaml`. Unset / unknown
+values are treated as `pause_each` by topic — fail closed.
 
 ## A2-Q1 — Module selection (single-feature mode)
 
