@@ -14,12 +14,20 @@ import sys
 from pathlib import Path
 
 
-def _sources(project_root):
-    """Return sorted list of .md source files under ai-instructions/."""
+def _sources(project_root, *, include_base=True):
+    """Return sorted list of .md source files under ai-instructions/.
+
+    base.md is the fixed preamble for AGENTS.md (tells Codex to read CLAUDE.md).
+    When include_base=False it is excluded — used by CLAUDE.md and Cursor renders
+    which don't need a self-referential pointer.
+    """
     src_dir = project_root / "ai-instructions"
     if not src_dir.exists():
         return []
-    return sorted(src_dir.glob("*.md"))
+    files = sorted(src_dir.glob("*.md"))
+    if not include_base:
+        files = [f for f in files if f.name != "base.md"]
+    return files
 
 
 # Single source-of-truth banner. Reused across all derived targets so the
@@ -33,12 +41,21 @@ _BANNER = (
 
 
 def _render_agents_md(project_root):
-    """Regenerate AGENTS.md by concatenating all sources with H1 per file."""
-    sources = _sources(project_root)
+    """Regenerate AGENTS.md by concatenating all sources.
+
+    base.md is rendered first as a plain preamble (no H1 header) so Codex
+    sees the "read CLAUDE.md" instruction at the top. Remaining sources get
+    an H1 section header per file.
+    """
+    base_path = project_root / "ai-instructions" / "base.md"
+    sources = _sources(project_root, include_base=False)
     parts = [_BANNER + "\n"]
+    # Preamble from base.md (rendered without a # header — it has its own).
+    if base_path.exists():
+        parts.append(base_path.read_text().rstrip() + "\n")
     for src in sources:
         parts.append(f"# {src.stem}\n\n{src.read_text().rstrip()}\n")
-    (project_root / "AGENTS.md").write_text("\n".join(parts) if sources else _BANNER + "\n")
+    (project_root / "AGENTS.md").write_text("\n".join(parts) if (base_path.exists() or sources) else _BANNER + "\n")
 
 
 BEGIN_MARKER = "<!-- AI-INSTRUCTIONS:BEGIN -->"
@@ -74,8 +91,10 @@ def _rendered_block(project_root):
     level so they nest as children of the section header instead of
     appearing as adjacent siblings. Banner placed first so a casual reader
     sees the warning before any rendered content.
+
+    base.md is excluded — CLAUDE.md doesn't need a pointer to itself.
     """
-    sources = _sources(project_root)
+    sources = _sources(project_root, include_base=False)
     parts = [_BANNER + "\n"]
     for src in sources:
         body = _demote_headings(src.read_text().rstrip())
@@ -112,10 +131,11 @@ def _render_cursor_rules(project_root):
     """One .cursor/rules/{name}.mdc per source file, with Cursor frontmatter.
 
     Banner placed AFTER the frontmatter so Cursor's YAML parser still works.
+    base.md is excluded — Cursor reads its own rules, no redirect needed.
     """
     rules_dir = project_root / ".cursor" / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
-    for src in _sources(project_root):
+    for src in _sources(project_root, include_base=False):
         target = rules_dir / f"{src.stem}.mdc"
         body = src.read_text().rstrip()
         target.write_text(
