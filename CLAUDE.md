@@ -189,8 +189,7 @@ In this mode:
    `@tencentcloud/uikit-base-component-vue3`, and
    `@tencentcloud/universal-api`.
 2. Render the official components (`ConferenceMainView` for PC and
-   `ConferenceMainViewH5` for H5) inside `UIKitProvider`（从
-   `@tencentcloud/uikit-base-component-vue3` 导入）.
+   `ConferenceMainViewH5` for H5) inside `UIKitProvider`.
 3. Use the official `conference` API for auth and room lifecycle:
    `conference.login()`, `conference.setSelfInfo()`,
    `conference.createAndJoinRoom()`, `conference.joinRoom()`,
