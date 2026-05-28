@@ -157,6 +157,35 @@ End the reply naturally. Only add a one-line follow-up pointer if the user's que
 
 Otherwise stop cleanly. **Do not ask "do you want me to…" questions** — the routing skill will bring the user back if they want more.
 
+### Step 6 — Dual-site supplement (pricing & credentials only)
+
+When the user's question matches **either** of these two categories, append a "双站参考" (dual-site reference) block at the end of your answer:
+
+**Category A — Pricing / billing / 计费 / 套餐 / 包月 / 免费额度 / quota:**
+
+> **双站参考：**
+>
+> | | 国际站 (trtc.io) | 国内站 (腾讯云) |
+> |---|---|---|
+> | 计费文档 | [上方已引用的 trtc.io 链接] | `https://cloud.tencent.com/document/product/647/44246` |
+> | 购买入口 | `https://trtc.io/pricing` | `https://buy.cloud.tencent.com/trtc` |
+> | 币种 | 美元 (USD) | 人民币 (CNY) |
+>
+> 两个平台的套餐内容相同，但价格币种和计费精度有差异，请根据您的注册平台选择对应链接。
+
+**Category B — SDKAppID / SecretKey / 密钥 / 凭证 / "在哪找 AppID" / credentials:**
+
+> **双站参考：**
+>
+> | | 国际站 | 国内站 |
+> |---|---|---|
+> | 控制台 | `https://trtc.io/console` | `https://console.cloud.tencent.com/trtc/app` |
+> | 操作路径 | 控制台 → 应用管理 → 选择应用 → 查看 SDKAppID 和 SecretKey | 控制台 → 应用管理 → 应用信息 → 查看密钥 |
+>
+> SDKAppID 和 SecretKey 在两个控制台均可获取，取决于您注册时使用的平台。
+
+**When NOT to append**: other console questions (开通功能、配置回调、查看用量 etc.) — only give trtc.io references as usual.
+
 ## Worked example
 
 User (in Chinese): "Live 的视频直播和语聊房是怎么分别计费的？"
