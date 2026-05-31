@@ -25,14 +25,23 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 **Cursor**
 
-Clone the repo and symlink it into Cursor's local plugin directory:
+Install with one command (no clone, no symlink):
 
 ```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git
-ln -s "$(pwd)/agent-skills" ~/.cursor/plugins/local/trtc-agent-skills
+npx @tencent-rtc/agent-skills install
 ```
 
 Then in Cursor run **`Cmd+Shift+P`** → `Reload Window` (or restart Cursor).
+
+To remove later:
+
+```bash
+npx @tencent-rtc/agent-skills uninstall
+```
+
+> Already cloned + symlinked using the previous instructions? Run `npx @tencent-rtc/agent-skills install --force` to migrate to a managed install.
+
+> ℹ️ The Cursor marketplace entry is in review. Once approved, Cursor users will also be able to install via the in-app plugin browser; the `npx` command above will continue to work for CI / scripted setups.
 
 **Codex CLI**
 

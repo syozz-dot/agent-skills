@@ -25,14 +25,23 @@
 
 **Cursor**
 
-克隆仓库并创建符号链接到 Cursor 本地插件目录：
+一行命令安装，无需 clone 和 symlink：
 
 ```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git
-ln -s "$(pwd)/agent-skills" ~/.cursor/plugins/local/trtc-agent-skills
+npx @tencent-rtc/agent-skills install
 ```
 
 然后按 **`Cmd+Shift+P`** → 输入 `Reload Window` 回车（或直接重启 Cursor）。
+
+卸载：
+
+```bash
+npx @tencent-rtc/agent-skills uninstall
+```
+
+> 之前已经按旧文档 clone + symlink 了？运行 `npx @tencent-rtc/agent-skills install --force` 即可迁移到托管安装。
+
+> ℹ️ Cursor 插件市场审核中。审核通过后，Cursor 用户也可以通过插件浏览器一键安装；上面的 `npx` 命令仍然可用于 CI / 批量部署场景。
 
 **Codex CLI**
 

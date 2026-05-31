@@ -9,6 +9,9 @@ __pycache__/
 dist/
 build/
 
+# npm pack artifacts
+*.tgz
+
 # Eval runs (never commit — may contain PII in logs)
 .claude/eval-runs/
 

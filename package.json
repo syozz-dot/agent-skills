@@ -1,0 +1,54 @@
+{
+  "name": "@tencent-rtc/agent-skills",
+  "version": "0.1.0",
+  "description": "Installer for the TRTC agent-skills plugin — installs skills, knowledge base, and hooks into Cursor (and other supported AI coding tools).",
+  "keywords": [
+    "trtc",
+    "tencent-rtc",
+    "cursor",
+    "cursor-plugin",
+    "claude-code",
+    "agent-skills",
+    "webrtc",
+    "real-time-communication"
+  ],
+  "homepage": "https://trtc.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tencent-RTC/agent-skills.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tencent-RTC/agent-skills/issues"
+  },
+  "license": "MIT",
+  "author": "Tencent TRTC Team",
+  "type": "module",
+  "bin": {
+    "trtc-agent-skills": "bin/install.js"
+  },
+  "files": [
+    "bin/",
+    "skills/",
+    "knowledge-base/",
+    "hooks/",
+    "ai-instructions/",
+    ".cursor-plugin/",
+    ".cursor/",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    ".codebuddy-plugin/",
+    ".agents/",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CODEBUDDY.md",
+    "README.md",
+    "README.zh.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/unit",
+    "pack:dry": "npm pack --dry-run"
+  }
+}
