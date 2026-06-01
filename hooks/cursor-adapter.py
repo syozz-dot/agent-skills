@@ -20,6 +20,20 @@ This script:
 Fail-open principle: if anything goes wrong inside the adapter (missing
 script, malformed stdin, dispatch key unknown), we exit 0 silently so a
 broken adapter never blocks the user's workflow.
+
+Cursor event mapping (see hooks-cursor.json):
+  sessionStart      -> trtc-prepare-ui
+  beforeReadFile    -> gate-slice-read
+  preToolUse        -> gate-slice-write       (filtered to Write/Edit inside)
+  afterFileEdit     -> verify-ui-post-write, verify-slice-must
+  sessionEnd        -> stop-apply-evidence, trtc-verify-ui, verify-apply-project
+                       (Cursor's documented `stop` event does not actually fire
+                        as of 2026-06; sessionEnd is the closest reliable
+                        signal that a Cursor agent session has truly ended.)
+
+To enable verbose tracing during development, set the env var
+TRTC_HOOK_DEBUG_LOG=/path/to/file.log; see _dbg() below. The default is
+silent (no log file written) so production installs don't accumulate logs.
 """
 from __future__ import annotations
 
@@ -31,6 +45,21 @@ from pathlib import Path
 
 ADAPTER_DIR = Path(__file__).resolve().parent
 PLUGIN_ROOT = ADAPTER_DIR.parent  # plugin install root
+
+
+# Optional debug logging — only writes when TRTC_HOOK_DEBUG_LOG is set to a
+# path. Useful for diagnosing "why didn't my hook fire" without modifying
+# the script.
+def _dbg(msg: str) -> None:
+    log_path = os.environ.get("TRTC_HOOK_DEBUG_LOG")
+    if not log_path:
+        return
+    try:
+        import datetime as _dt
+        with open(log_path, "a") as f:
+            f.write(f"[{_dt.datetime.now().isoformat(timespec='milliseconds')}] {msg}\n")
+    except Exception:
+        pass
 
 
 # Dispatch table: dispatch_key -> relative script path under PLUGIN_ROOT.
@@ -57,6 +86,7 @@ STDIN_KEYS = {
 
 def _silent_allow() -> None:
     """Fail-open: never block the user because the adapter itself failed."""
+    _dbg("  EXIT=0 (silent allow)")
     sys.exit(0)
 
 
@@ -100,13 +130,14 @@ def _translate_payload(key: str, cursor: dict) -> dict:
         file_path = cursor.get("file_path") or cursor.get("filePath")
         return {"tool_name": "Edit", "tool_input": {"file_path": file_path}}
 
-    # CLI-only events (sessionStart, stop) get empty stdin — they read state
-    # from session files and env vars, not stdin.
+    # CLI-only events (sessionStart, sessionEnd) get empty stdin — they read
+    # state from session files and env vars, not stdin.
     return {}
 
 
 def _emit_cursor_deny(message: str) -> None:
     """Cursor deny protocol: JSON on stdout + exit 2."""
+    _dbg(f"  EXIT=2 (deny) message={message[:160]!r}")
     payload = {
         "permission": "deny",
         "agent_message": message or "Blocked by TRTC guardrail.",
@@ -117,10 +148,22 @@ def _emit_cursor_deny(message: str) -> None:
 
 
 def main(argv: list[str]) -> None:
-    if len(argv) < 2:
+    key = argv[1] if len(argv) >= 2 else None
+    _dbg(
+        f"ENTER key={key!r} "
+        f"cursor_project_dir={os.environ.get('CURSOR_PROJECT_DIR', '?')!r}"
+    )
+    if not key:
         _silent_allow()
 
-    key = argv[1]
+    # Read stdin first so debug logs see Cursor's hook_event_name even when
+    # the dispatch key is unknown or the script is missing.
+    cursor_payload = _read_cursor_payload()
+    _dbg(
+        f"  hook_event_name={cursor_payload.get('hook_event_name', '?')!r} "
+        f"keys={sorted(cursor_payload.keys()) if cursor_payload else []}"
+    )
+
     rel_script = DISPATCH.get(key)
     if not rel_script:
         # Unknown dispatch key — never block on adapter misconfiguration.
@@ -132,7 +175,6 @@ def main(argv: list[str]) -> None:
         # existing hooks.json uses ("[ ! -f X ] || python3 X").
         _silent_allow()
 
-    cursor_payload = _read_cursor_payload()
     claude_payload = _translate_payload(key, cursor_payload)
 
     # gate-slice-write returns {} when tool isn't Write/Edit -> silent allow.
@@ -164,12 +206,13 @@ def main(argv: list[str]) -> None:
 
     # Forward whatever the inner script wrote.
     if proc.stdout:
-        sys.stderr.write(proc.stdout)  # inner stdout goes to stderr to avoid
-                                       # corrupting our Cursor JSON channel
+        sys.stderr.write(proc.stdout)  # inner stdout -> stderr so we don't
+                                       # corrupt our Cursor JSON channel
     if proc.stderr:
         sys.stderr.write(proc.stderr)
 
     rc = proc.returncode
+    _dbg(f"  inner_rc={rc}")
     if rc == 0:
         sys.exit(0)
     if rc in (1, 2):

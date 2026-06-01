@@ -139,3 +139,20 @@ test('unknown flag fails with helpful error', () => {
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /unknown flag/i);
 });
+
+// Regression: parseArgs must default installDir to undefined (not null), so
+// that target modules' default-parameter values (e.g. cursor.js's
+// DEFAULT_INSTALL_DIR) actually kick in when the user doesn't pass
+// --install-dir. Earlier versions left this as null, which silently broke
+// `npx ... install` with no flags because mkdirSync(null) throws.
+test('install without --install-dir uses target default (does not crash)', () => {
+  // We can't actually install into ~/.cursor in a unit test, so we use
+  // `info` instead — it goes through the same arg-parsing path and just
+  // reports status. Its success proves installDir defaulting works.
+  const r = runCLI(['info', '--json']);
+  assert.equal(r.status, 0, r.stderr);
+  const parsed = JSON.parse(r.stdout);
+  assert.equal(parsed.target, 'cursor');
+  // Default install dir should be a non-empty string under the home dir.
+  assert.match(parsed.installDir, /\.cursor[\/\\]plugins[\/\\]local[\/\\]trtc-agent-skills$/);
+});

@@ -44,7 +44,9 @@ export function parseArgs(argv) {
   const out = {
     command: null,
     target: 'cursor',
-    installDir: null,
+    // Note: undefined (not null) so target modules' default-parameter
+    // values kick in when the user doesn't pass --install-dir.
+    installDir: undefined,
     force: false,
     json: false,
   };

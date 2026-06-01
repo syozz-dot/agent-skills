@@ -24,7 +24,7 @@
         "command": "python3 ./hooks/cursor-adapter.py verify-slice-must"
       }
     ],
-    "stop": [
+    "sessionEnd": [
       {
         "command": "python3 ./hooks/cursor-adapter.py stop-apply-evidence"
       },
