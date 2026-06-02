@@ -1,5 +1,7 @@
 # TRTC AI Integration
 
+**English** | [简体中文](README.zh.md)
+
 An agent skill provided by [TRTC](https://trtc.io) (Tencent Real-Time Communication) to help developers integrate real-time audio/video, live streaming, and instant messaging into their apps — from first setup to production-ready code.
 
 Instead of reading through long documentation, you describe what you want to build in plain language. The skill routes your request to the right knowledge, asks a few clarifying questions, and walks you through the integration step by step.
@@ -25,14 +27,13 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 **Cursor**
 
-Clone the repo and symlink it into Cursor's local plugin directory:
+Clone the repo into Cursor's local plugin directory:
 
 ```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git
-ln -s "$(pwd)/agent-skills" ~/.cursor/plugins/local/trtc-agent-skills
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
 ```
 
-Then in Cursor run **`Cmd+Shift+P`** → `Reload Window` (or restart Cursor).
+Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
 
 **Codex CLI**
 
@@ -40,12 +41,12 @@ Then in Cursor run **`Cmd+Shift+P`** → `Reload Window` (or restart Cursor).
 # Step 1 — add the TRTC plugin marketplace
 codex plugin marketplace add Tencent-RTC/agent-skills
 
-# Step 2 — open the plugin browser, search "trtc-agent-skills" and install
-# Run inside Codex CLI:
+# Step 2 — open the plugin browser inside Codex CLI:
 /plugins
+# Select the "TRTC Agent Skills" tab → select trtc-agent-skills → press Enter to install
 ```
 
-**CodeBuddy**
+**CodeBuddy CLI**
 
 ```bash
 # Step 1 — add the TRTC plugin marketplace
@@ -61,6 +62,8 @@ codex plugin marketplace add Tencent-RTC/agent-skills
 ## Using with MCP
 
 This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
+
+> You can find `YOUR_SDKAPPID` and `YOUR_SECRET_KEY` on the application details page in the [console (International)](https://console.trtc.io) or [console (China)](https://console.cloud.tencent.com).
 
 **Claude Code**
 
@@ -110,6 +113,8 @@ codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECR
 
 ---
 
+## What it does
+
 The skill activates automatically when you mention TRTC or describe a real-time communication use case. No slash commands needed — just ask in plain language.
 
 | | What it does | Example prompts |
@@ -132,7 +137,6 @@ The skill saves your progress in the project. If you close the tool and come bac
 | **Call** | Audio/video calling — 1-on-1 and group calls | Coming soon |
 | **RTC Engine** | Low-level real-time audio/video engine — room management, publishing, subscribing | Coming soon |
 
-> The skill also recognizes business scenarios that imply real-time communication — "telemedicine app", "online classroom", "video interview platform" — and maps them to the right TRTC product automatically.
 
 ---
 
