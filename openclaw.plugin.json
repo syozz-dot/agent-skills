@@ -1,0 +1,30 @@
+{
+  "id": "trtc-agent-skills",
+  "name": "TRTC Agent Skills",
+  "description": "TRTC SDK integration assistant with knowledge base. Helps developers integrate Tencent Real-Time Communication SDK across Web, Android, iOS, Flutter, and Electron platforms.",
+  "version": "0.1.0",
+  "homepage": "https://trtc.io",
+  "repository": "https://github.com/Tencent-RTC/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "trtc",
+    "webrtc",
+    "real-time-communication",
+    "video-conference",
+    "live-streaming",
+    "tencent-cloud"
+  ],
+  "skills": [
+    "./skills/trtc",
+    "./skills/trtc-apply",
+    "./skills/trtc-docs",
+    "./skills/trtc-onboarding",
+    "./skills/trtc-search",
+    "./skills/trtc-topic"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

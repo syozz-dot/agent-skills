@@ -3,7 +3,8 @@
   "description": "TRTC AI Integration Assistant - helps developers integrate Tencent Real-Time Communication SDKs (Chat, Call, RTC Engine, Live, Conference) across Web, Android, iOS, Flutter, and Electron.",
   "version": "0.1.0",
   "author": {
-    "name": "Tencent TRTC Team"
+    "name": "Tencent TRTC Team",
+    "url": "https://trtc.io"
   },
   "homepage": "https://trtc.io",
   "repository": "https://github.com/Tencent-RTC/agent-skills",
