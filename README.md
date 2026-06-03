@@ -59,14 +59,6 @@ codex plugin marketplace add Tencent-RTC/agent-skills
 /reload-plugins
 ```
 
-**ClawHub / OpenClaw**
-
-```bash
-openclaw plugins install clawhub:@tencent-rtc/trtc-agent-skills
-```
-
-> Requires the [OpenClaw](https://openclaw.ai/) runtime. Available on [ClawHub](https://clawhub.ai/) once published.
-
 ## Using with MCP
 
 This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
