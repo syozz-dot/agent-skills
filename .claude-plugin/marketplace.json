@@ -2,8 +2,7 @@
   "name": "trtc-marketplace",
   "description": "TRTC AI Integration plugins",
   "owner": {
-    "name": "Tencent TRTC Team",
-    "url": "https://github.com/Tencent-RTC"
+    "name": "Tencent TRTC Team"
   },
   "metadata": {
     "description": "TRTC SDK integration plugins for AI agents — covers Web, Android, iOS, Flutter, and Electron platforms",
@@ -12,13 +11,11 @@
   "plugins": [
     {
       "name": "trtc-agent-skills",
-      "source": {
-        "source": "github",
-        "repo": "Tencent-RTC/agent-skills"
-      },
+      "source": "./",
       "description": "TRTC SDK integration assistant with knowledge base. Helps developers integrate Tencent Real-Time Communication SDK across Web/Android/iOS/Flutter/Electron.",
       "version": "0.1.0",
       "homepage": "https://trtc.io",
+      "repository": "https://github.com/Tencent-RTC/agent-skills",
       "license": "MIT",
       "category": "developer-tools",
       "keywords": [
