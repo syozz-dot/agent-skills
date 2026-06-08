@@ -119,9 +119,9 @@ The skill activates automatically when you mention TRTC or describe a real-time 
 
 | | What it does | Example prompts |
 |---|---|---|
-| **Get started** | Guides you through demo setup, SDK integration, troubleshooting, or adding a new feature — step by step | *"I want to add video conferencing to my web app"* · *"I'm getting error 6206 when users join"* · *"Conference is working — now I want to add screen sharing"* |
-| **Scenario walkthrough** | Loads a complete feature scenario and walks you through each capability in order, with code and checkpoints | *"Walk me through building a complete conference room from scratch"* · *"Guide me through a 1-on-1 video consultation end to end"* |
-| **Docs & lookup** | Answers factual questions from the official knowledge base with cited sources | *"What does error code 6206 mean?"* · *"How much does Conference cost per participant minute?"* · *"What's the max number of participants?"* |
+| **Get started** | Guides you through demo setup, SDK integration, troubleshooting, or adding a new feature — step by step | • *"I want to add video conferencing to my web app"*<br>• *"I'm getting error 6206 when users join"*<br>• *"Conference is working — now I want to add screen sharing"* |
+| **Scenario walkthrough** | Loads a complete feature scenario and walks you through each capability in order, with code and checkpoints | • *"Walk me through building a complete conference room from scratch"*<br>• *"Guide me through a 1-on-1 video consultation end to end"* |
+| **Docs & lookup** | Answers factual questions from the official knowledge base with cited sources | • *"What does error code 6206 mean?"*<br>• *"How much does Conference cost per participant minute?"*<br>• *"What's the max number of participants?"* |
 
 The skill saves your progress in the project. If you close the tool and come back later, it picks up where you left off.
 
