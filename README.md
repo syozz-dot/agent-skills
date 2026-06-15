@@ -59,6 +59,25 @@ codex plugin marketplace add Tencent-RTC/agent-skills
 /reload-plugins
 ```
 
+### Install via npx (any IDE, no plugin marketplace required)
+
+If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
+
+```bash
+# Default — auto-detect installed IDEs (~/.{claude,cursor,codebuddy,codex}/)
+# and install for each one found. Falls back to claude if none detected.
+npx -y @tencent-rtc/trtc-agent-skills add
+
+# Force install for every supported IDE (even ones you don't have)
+npx -y @tencent-rtc/trtc-agent-skills add --ide all
+
+# Install only for one specific IDE
+npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
+
+# Wipe a previous install before re-installing
+npx -y @tencent-rtc/trtc-agent-skills add --clean
+```
+
 ## Using with MCP
 
 This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
