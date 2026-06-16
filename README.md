@@ -10,7 +10,7 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ---
 
-### Install via npx
+### Installation
 
 If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
 
@@ -27,58 +27,6 @@ npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
 
 # Wipe a previous install before re-installing
 npx -y @tencent-rtc/trtc-agent-skills add --clean
-```
-
-## Using with MCP
-
-This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
-
-> You can find `YOUR_SDKAPPID` and `YOUR_SECRET_KEY` on the application details page in the [console (International)](https://console.trtc.io) or [console (China)](https://console.cloud.tencent.com).
-
-**Claude Code**
-
-```bash
-claude mcp add tencent-rtc -e SDKAPPID=YOUR_SDKAPPID -e SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**Cursor** — add to `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
-```
-
-**Codex CLI**
-
-```bash
-codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**CodeBuddy** — add via Settings → Add MCP:
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
 ```
 
 ---
