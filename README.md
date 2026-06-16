@@ -10,56 +10,7 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ---
 
-## Installation
-
-**Claude Code**
-
-```bash
-# Step 1 — add the TRTC plugin marketplace
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — install the plugin
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# Step 3 — activate without restarting
-/reload-plugins
-```
-
-**Cursor**
-
-Clone the repo into Cursor's local plugin directory:
-
-```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
-```
-
-Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
-
-**Codex CLI**
-
-```bash
-# Step 1 — add the TRTC plugin marketplace
-codex plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — open the plugin browser inside Codex CLI:
-/plugins
-# Select the "TRTC Agent Skills" tab → select trtc-agent-skills → press Enter to install
-```
-
-**CodeBuddy CLI**
-
-```bash
-# Step 1 — add the TRTC plugin marketplace
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — install the plugin
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# Step 3 — activate without restarting
-/reload-plugins
-```
-
-### Install via npx (any IDE, no plugin marketplace required)
+### Install via npx
 
 If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
 
