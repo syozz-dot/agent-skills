@@ -49,6 +49,7 @@ const PKG_VERSION = PKG_JSON.version || "0.0.0";
 const SKILLS_SRC  = path.join(PKG_ROOT, "skills");
 const KB_SRC      = path.join(PKG_ROOT, "knowledge-base");
 const HOOKS_SRC   = path.join(PKG_ROOT, "hooks");
+const COMMANDS_SRC = path.join(PKG_ROOT, "commands");
 
 // The 6 skills that make up the suite. Order is cosmetic; `trtc` is the entry.
 const SKILL_NAMES = [
@@ -62,8 +63,12 @@ const SKILL_NAMES = [
 
 // IDE skill-install targets (project-level). Each IDE reads skills from a
 // different directory, but the layout inside is identical: one dir per skill.
+// `commandsRoot` (optional) is the project-level dir where user-facing slash
+// commands live — currently only Claude has a stable convention for this
+// (`.claude/commands/`); other IDEs either lack the concept or use a different
+// shape, so we leave commandsRoot undefined for them and skip the copy.
 const IDE_TARGETS = {
-  claude:    { skillsRoot: ".claude/skills",    kind: "dir" },
+  claude:    { skillsRoot: ".claude/skills",    commandsRoot: ".claude/commands", kind: "dir" },
   cursor:    { skillsRoot: ".cursor/skills",    kind: "dir" },
   codebuddy: { skillsRoot: ".codebuddy/skills", kind: "dir" },
   // Codex looks for hooks at <repo>/.codex/hooks.json (per
@@ -461,6 +466,24 @@ function installSkills(skillsRootAbs) {
       copyRecursive(src, path.join(skillsRootAbs, name));
     }
   }
+}
+
+// Copy user-facing slash command definitions (commands/*.md) into the IDE's
+// commands dir. Only IDEs that declare commandsRoot in IDE_TARGETS receive
+// commands — others (cursor/codebuddy/codex) silently skip. If the package
+// has no commands/ dir at all, this is a no-op.
+function installCommands(commandsRootAbs) {
+  if (!fs.existsSync(COMMANDS_SRC)) return [];
+  ensureDir(commandsRootAbs);
+  const copied = [];
+  for (const entry of fs.readdirSync(COMMANDS_SRC)) {
+    if (!entry.endsWith(".md")) continue;
+    const src = path.join(COMMANDS_SRC, entry);
+    const dest = path.join(commandsRootAbs, entry);
+    fs.copyFileSync(src, dest);
+    copied.push(entry);
+  }
+  return copied;
 }
 
 // Copy knowledge-base so that skills can resolve it. Skills use
@@ -919,6 +942,12 @@ function main() {
 
     const kbDest = copyKnowledgeBase(skillsRootAbs);
     console.log(c.green("    ✓ ") + "knowledge-base/ " + c.dim("→ " + kbDest));
+
+    if (target.commandsRoot) {
+      const commandsRootAbs = path.join(resolvedRoot, target.commandsRoot);
+      const copied = installCommands(commandsRootAbs);
+      for (const name of copied) console.log(c.green("    ✓ ") + "commands/" + name);
+    }
   }
 
   // 2. Install hooks (per-IDE: copy hooks dir + merge settings.json hooks).

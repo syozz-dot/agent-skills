@@ -9,6 +9,7 @@
   "repository": "https://github.com/Tencent-RTC/agent-skills",
   "license": "MIT",
   "skills": "./skills/",
+  "commands": "./commands/",
   "hooks": "./hooks/hooks.json",
   "keywords": [
     "trtc", "real-time-communication", "video-conference",

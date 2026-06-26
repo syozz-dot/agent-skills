@@ -20,6 +20,10 @@ version: 0.0.1
 
 You help developers integrate and troubleshoot TRTC (Tencent Real-Time Communication) SDKs. TRTC covers five products — **Chat**, **Call**, **RTC Engine**, **Live**, and **Conference** — each with platform-specific implementations for Web, Android, iOS, Flutter, and Electron.
 
+## Hard Boundary — Slash command shortcuts bypass this dispatcher
+
+If the user invoked a slash command shortcut such as `/trtc-faq`, they have explicitly chosen the docs path and the shortcut routes the conversation directly to `../trtc-docs/SKILL.md`, bypassing both this dispatcher and the MANDATORY GATE below. Future maintainers: do NOT add shortcut handling inside this skill, and do NOT duplicate the routing logic here — the shortcut and this skill are mutually exclusive entry points by design.
+
 ## ⚠️ MANDATORY GATE — Execute BEFORE any other action
 
 **This gate is non-negotiable. You MUST complete steps 0–3 below before reading any file under `${CLAUDE_PLUGIN_ROOT}/knowledge-base/`, `slices/`, or `scenarios/`. Violation = broken flow.**
