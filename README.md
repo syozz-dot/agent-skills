@@ -18,7 +18,7 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ## Installation
 
-If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
+Use the npx installer. Run it inside your project directory:
 
 ```bash
 # Default — auto-detect installed IDEs (~/.{claude,cursor,codebuddy,codex}/)
