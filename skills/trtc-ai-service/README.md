@@ -1,8 +1,18 @@
 # TRTC AI Customer Service Skill
 
-[English](README.md) | [中文](README.zh-CN.md)
+[English](README.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md)
 
 > A zero-code AI customer service builder. Just say a sentence in the chat window and the AI will guide you step by step to get your customer service system up and running — no terminal, no scripts, no coding required.
+
+## Demo
+
+https://github.com/user-attachments/assets/a2e076ce-38c9-4bd8-a40a-e4e09d4ce360
+
+## About Tencent RTC
+
+[Tencent RTC](https://trtc.io) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
+
+The **Conversational AI** capability enables developers to build voice agents that can listen, understand, and respond naturally — perfect for customer service, sales assistance, and intelligent self-service scenarios.
 
 ## What is this?
 
@@ -46,13 +56,13 @@ You never open a terminal or run a script manually.
 
 **User-level** (recommended — available across all projects):
 ```bash
-/skills install https://github.com/Burgerham4R/ai-customer-service-skill
+/skills install https://github.com/Tencent-RTC/agent-skills
 ```
 
 **Project-level** (only available in the current project):
 ```bash
 # The skill will be installed to ./.codex/skills/ (Cmd+Shift+. to show hidden folders in Finder)
-/skills install --project https://github.com/Burgerham4R/ai-customer-service-skill
+/skills install --project https://github.com/Tencent-RTC/agent-skills
 ```
 
 #### Claude Code CLI
@@ -60,22 +70,22 @@ You never open a terminal or run a script manually.
 **User-level** (recommended — available across all projects):
 ```bash
 mkdir -p ~/.claude/skills
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git ~/.claude/skills/ai-customer-service-skill
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.claude/skills/agent-skills
 ```
 
 **Project-level** (only available in the current project):
 ```bash
 mkdir -p ./.claude/skills
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git ./.claude/skills/ai-customer-service-skill
+git clone https://github.com/Tencent-RTC/agent-skills.git ./.claude/skills/agent-skills
 ```
 
 #### Other agents (CodeBuddy / Cursor / etc.)
 
 Clone to any location and point your agent to `SKILL.md`:
 ```bash
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git
+git clone https://github.com/Tencent-RTC/agent-skills.git
 # Then tell your agent:
-# "Load the Skill from /path/to/ai-service-skill/SKILL.md"
+# "Load the Skill from /path/to/agent-skills/skills/trtc-ai-service/SKILL.md"
 ```
 
 > **After installation, restart your CLI session** to ensure the Skill is properly registered and loaded.
@@ -90,11 +100,11 @@ git clone https://github.com/Burgerham4R/ai-customer-service-skill.git
 
 To get the customer service agent running, you need 3 cloud service credentials. Don't worry — they're just 3 strings you copy-paste from the corresponding websites.
 
-> **Tencent RTC (trtc.io)** is Tencent Cloud's international Real-Time Communication brand. The TRTC Conversational AI service runs on Tencent Cloud infrastructure — your TRTC account and Tencent Cloud account are linked through a unified login system. When you get your API Key, the system will automatically sync your login session.
+> **How are TRTC and Tencent Cloud connected?** The TRTC Conversational AI service runs on Tencent Cloud. In simple terms: TRTC handles the voice calls between your customers and the AI agent, while Tencent Cloud handles the backend (permissions, service setup, billing, etc.). The two share the same login — register once and you're all set.
 
 | Key | Purpose | Where to find it |
 |-----|---------|-----------------|
-| Key 1: TRTC Application Credentials | Lets the agent make calls and do voice chat | https://console.trtc.io/ (register & create a Conversational AI app) |
+| Key 1: TRTC Application Credentials | Lets the agent make calls and do voice chat | https://console.trtc.io/ (register & create an **RTC Engine** app — supports Conversational AI) |
 | Key 2: Tencent Cloud API Key | Proves you have permission to use Tencent Cloud voice & calling services (login syncs with your TRTC account) | https://console.tencentcloud.com/cam/capi |
 | Key 3: LLM API Key | Lets the agent "think" — understand queries and respond | Your registered AI service website (e.g. OpenAI, DeepSeek, etc.) |
 
@@ -193,3 +203,7 @@ ai-service-skill/
 ---
 
 > **One last thing**: This Skill is designed so that anyone — even with zero coding experience — can get an AI customer service agent up and running. If you run into any issues along the way, just tell the AI in the chat window and it'll help you resolve them.
+
+## Contact Us
+
+Need technical support or enterprise pricing? Submit your contact information at [trtc.io/contact](https://trtc.io/contact) and our team will get back to you shortly.

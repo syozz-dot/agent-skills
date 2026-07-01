@@ -1,8 +1,18 @@
 # TRTC AI 客服 Skill
 
-[English](README.md) | [中文](README.zh-CN.md)
+[English](README.md) | [中文](README.zh-CN.md) | [日本語](README.ja.md)
 
 > 零代码 AI 客服搭建器。只需在聊天窗口中说一句话，AI 会一步步引导你完成客服系统的搭建——无需终端、无需脚本、无需编程。
+
+## 演示
+
+https://github.com/user-attachments/assets/a2e076ce-38c9-4bd8-a40a-e4e09d4ce360
+
+## 关于 Tencent RTC
+
+[Tencent RTC](https://trtc.io)（实时音视频）为全球数千家企业提供实时音频、视频和对话式 AI 体验。依托覆盖 200+ 国家和地区的全球边缘网络，TRTC 提供低于 300ms 的超低延迟大规模实时通信能力。
+
+**Conversational AI** 能力让开发者可以构建能够聆听、理解并自然回应的语音智能体——非常适合客服、销售辅助和智能自助服务场景。
 
 ## 这是什么？
 
@@ -46,13 +56,13 @@ AI（自动完成所有操作）：
 
 **用户级安装**（推荐 — 所有项目均可使用）：
 ```bash
-/skills install https://github.com/Burgerham4R/ai-customer-service-skill
+/skills install https://github.com/Tencent-RTC/agent-skills
 ```
 
 **项目级安装**（仅当前项目可用）：
 ```bash
 # Skill 将安装到 ./.codex/skills/（访达中按 Cmd+Shift+. 可显示隐藏文件夹）
-/skills install --project https://github.com/Burgerham4R/ai-customer-service-skill
+/skills install --project https://github.com/Tencent-RTC/agent-skills
 ```
 
 #### Claude Code CLI
@@ -60,22 +70,22 @@ AI（自动完成所有操作）：
 **用户级安装**（推荐 — 所有项目均可使用）：
 ```bash
 mkdir -p ~/.claude/skills
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git ~/.claude/skills/ai-customer-service-skill
+git clone https://github.com/Tencent-RTC/agent-skills.git ~/.claude/skills/agent-skills
 ```
 
 **项目级安装**（仅当前项目可用）：
 ```bash
 mkdir -p ./.claude/skills
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git ./.claude/skills/ai-customer-service-skill
+git clone https://github.com/Tencent-RTC/agent-skills.git ./.claude/skills/agent-skills
 ```
 
 #### 其他 Agent（CodeBuddy / Cursor 等）
 
 克隆到任意位置，然后让 Agent 加载 `SKILL.md`：
 ```bash
-git clone https://github.com/Burgerham4R/ai-customer-service-skill.git
+git clone https://github.com/Tencent-RTC/agent-skills.git
 # 然后对你的 Agent 说：
-# "从 /path/to/ai-service-skill/SKILL.md 加载这个 Skill"
+# "从 /path/to/agent-skills/skills/trtc-ai-service/SKILL.md 加载这个 Skill"
 ```
 
 > **安装完成后，请重启 CLI 会话** 以确保 Skill 被正确注册和加载。
@@ -88,11 +98,11 @@ git clone https://github.com/Burgerham4R/ai-customer-service-skill.git
 
 要让客服智能体跑起来，你需要 3 个云服务凭证。别担心——它们只是从相应网站复制粘贴的 3 个字符串：
 
-> **Tencent RTC (trtc.io)** 是腾讯云旗下的国际实时音视频通信品牌。TRTC Conversational AI 服务基于腾讯云基础设施运行——你的 TRTC 账号和腾讯云账号通过统一登录体系关联。获取 API Key 时，系统会自动同步你的登录状态。
+> **TRTC 和腾讯云是什么关系？** TRTC 的语音智能体服务运行在腾讯云上。简单理解：TRTC 负责客户与 AI 智能体之间的语音通话，腾讯云负责后台（权限校验、服务开通、计费等）。两者使用同一套登录体系，注册一次就能两边通用。
 
 | 密钥 | 用途 | 获取地址 |
 |------|------|---------|
-| 密钥 1：TRTC 应用凭证 | 让智能体能够拨打电话和进行语音聊天 | https://console.trtc.io/（注册并创建 Conversational AI 应用） |
+| 密钥 1：TRTC 应用凭证 | 让智能体能够拨打电话和进行语音聊天 | https://console.trtc.io/（注册并创建 **RTC Engine** 应用，支持 Conversational AI） |
 | 密钥 2：Tencent Cloud API Key | 证明你有权限使用 TRTC 语音和通话服务（登录态与 TRTC 账号自动同步） | https://console.tencentcloud.com/cam/capi |
 | 密钥 3：LLM API Key | 让智能体能够"思考"——理解用户问题并回复 | 你注册的 AI 服务网站（如 OpenAI、DeepSeek 等） |
 
@@ -191,3 +201,7 @@ ai-service-skill/
 ---
 
 > **最后再说一句**：本 Skill 的设计目标是让任何人——即使完全不会编程——都能搭起一个 AI 客服智能体。如果在过程中遇到任何问题，直接在聊天窗口中告诉 AI，它会帮你解决。
+
+## 联系我们
+
+如需技术支持或企业定制优惠，可访问 [trtc.io/contact](https://trtc.io/contact) 提交联系方式，我们的团队将尽快与您联系。
